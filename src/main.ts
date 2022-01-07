@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 
 import { CacheType, Client, Collection, CommandInteraction, Intents } from 'discord.js';
 import { SlashCommandBuilder } from '@discordjs/builders';
@@ -12,7 +13,7 @@ const bot = {
 };
 
 // Dynamically read all event files
-const eventFiles = fs.readdirSync('./src/events').filter(file => file.endsWith('.ts'));
+const eventFiles = fs.readdirSync(`${path.dirname(__filename)}${path.sep}events`).filter(file => file.endsWith(path.extname(__filename)));
 
 for (const file of eventFiles) {
     const event = require(`./events/${file}`);

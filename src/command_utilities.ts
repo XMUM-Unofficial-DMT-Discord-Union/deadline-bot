@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { CacheType, Collection, Interaction } from 'discord.js';
 import fs from 'fs';
+import path from 'path';
 
 // Define the interface of each command
 interface CommandInterface {
@@ -9,7 +10,7 @@ interface CommandInterface {
 }
 
 const BOT_COMMANDS = new Collection<string, CommandInterface>();
-const commandFiles = fs.readdirSync('./src/commands').filter(file => file.endsWith('.ts'));
+const commandFiles = fs.readdirSync(`${path.dirname(__filename)}${path.sep}commands`).filter(file => file.endsWith(path.extname(__filename)));
 
 for (const file of commandFiles) {
     const command: CommandInterface = require(`./commands/${file}`);

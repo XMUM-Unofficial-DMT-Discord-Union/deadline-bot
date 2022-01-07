@@ -1,8 +1,9 @@
 {
   "main": "src/main.ts",
   "scripts": {
-    "start": "ts-node -r dotenv/config . dotenv_config_path=./.env",
-    "update": "ts-node -r dotenv/config src/deploy_commands.ts dotenv_config_path=./.env"
+    "dev-start": "ts-node -r dotenv/config . dotenv_config_path=./.env",
+    "update": "ts-node -r dotenv/config src/deploy_commands.ts dotenv_config_path=./.env",
+    "start": "node -r dotenv/config build/main.js dotenv_config_path=./.env"
   },
   "dependencies": {
     "@discordjs/builders": "^0.11.0",
