@@ -11,32 +11,17 @@ const bot = {
     }>()
 };
 
-const commandFiles = fs.readdirSync('./src/commands').filter(file => file.endsWith('.ts'));
+// Dynamically read all event files
+const eventFiles = fs.readdirSync('./src/events').filter(file => file.endsWith('.ts'));
 
-for (const file of commandFiles) {
-    const command = require(`./commands/${file}`);
+for (const file of eventFiles) {
+    const event = require(`./events/${file}`);
 
-    bot.commands.set(command.data.name, command);
+    if (event.once)
+        bot.client.once(event.name, (...args) => event.execute(...args));
+    else
+        bot.client.on(event.name, (...args) => event.execute(...args));
+
 }
-
-bot.client.once('ready', () => {
-    console.log('Ready!');
-});
-
-bot.client.on('interactionCreate', async interaction => {
-    if (!interaction.isCommand()) return;
-
-    const command = bot.commands.get(interaction.commandName);
-
-    if (!command) return;
-
-    try {
-        await command.execute(interaction);
-    }
-    catch (error) {
-        console.error(error);
-        await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-    }
-});
 
 bot.client.login(process.env.CLIENT_TOKEN as string);
