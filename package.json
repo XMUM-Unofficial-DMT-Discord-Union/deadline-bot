@@ -1,10 +1,11 @@
 {
-  "main": "src/main.ts",
+  "main": "build/main.js",
   "scripts": {
-    "dev-start": "ts-node -r dotenv/config . dotenv_config_path=./.env.development.local",
-    "dev-update": "ts-node -r dotenv/config src/deploy_commands.ts dotenv_config_path=./.env",
-    "start": "node -r dotenv/config build/main.js dotenv_config_path=./.env.production.local",
-    "update": "ts-node -r dotenv/config src/deploy_commands.ts dotenv_config_path=./.env.production.local"
+    "build": "tsc",
+    "dev-update": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.development.local",
+    "dev-start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.development.local",
+    "update": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.production.local",
+    "start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.production.local"
   },
   "dependencies": {
     "@discordjs/builders": "^0.11.0",
