@@ -15,6 +15,9 @@ const commandFiles = fs.readdirSync(`${path.dirname(__filename)}${path.sep}comma
 for (const file of commandFiles) {
     const command: CommandInterface = require(`./commands/${file}`);
 
+    // By default, only Adminstrators can see the commands
+    command.data.setDefaultPermission(false);
+
     BOT_COMMANDS.set(command.data.name, command);
 }
 

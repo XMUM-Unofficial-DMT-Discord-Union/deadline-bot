@@ -3,8 +3,10 @@
   "scripts": {
     "build": "tsc",
     "dev-update": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.development.local",
+    "dev-purge": "npm run build && node -r dotenv/config build/purge_commands.js dotenv_config_path=./.env.development.local",
     "dev-start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.development.local",
     "update": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.production.local",
+    "purge": "npm run build && node -r dotenv/config build/purge_commands.js dotenv_config_path=./.env.production.local",
     "start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.production.local"
   },
   "dependencies": {
@@ -14,10 +16,14 @@
     "discord-api-types": "^0.26.1",
     "discord.js": "^13.5.0",
     "dotenv": "^10.0.0",
+    "node-gyp": "4.0.0",
+    "sequelize": "^6.12.5",
+    "sqlite3": "^5.0.2",
+    "tar": "^6.1.11",
     "typescript": "^4.5.4"
   },
   "devDependencies": {
-    "ts-node": "^10.4.0",
-    "pm2": "^5.1.2"
+    "pm2": "^5.1.2",
+    "ts-node": "^10.4.0"
   }
 }

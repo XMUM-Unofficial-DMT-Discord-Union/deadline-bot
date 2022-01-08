@@ -1,4 +1,4 @@
-import { CacheType, Interaction } from "discord.js";
+import { CacheType, Interaction, Permissions } from "discord.js";
 import BOT_COMMANDS from "../command_utilities";
 
 module.exports = {
@@ -12,6 +12,7 @@ module.exports = {
 
         // TODO: Add Error Response
         if (!command) return;
+
 
         try {
             await command.execute(interaction);

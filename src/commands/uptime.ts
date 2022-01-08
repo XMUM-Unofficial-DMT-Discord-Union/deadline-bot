@@ -10,6 +10,6 @@ module.exports = {
 
         const parts = [time.getUTCHours(), time.getUTCMinutes(), time.getUTCSeconds()];
 
-        await interaction.reply(`Bot uptime: ${parts.map(part => String(part).padStart(2, '0')).join(':')}`);
+        await interaction.reply({ content: `Bot uptime: ${parts.map(part => String(part).padStart(2, '0')).join(':')}`, ephemeral: true });
     }
 }
