@@ -1,10 +1,17 @@
-import { SlashCommandBuilder } from "@discordjs/builders";
-import { CacheType, Interaction } from "discord.js";
+import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandsOnlyBuilder } from "@discordjs/builders";
+import { CacheType, Collection, CommandInteraction } from "discord.js";
 
 // Defines the structure of each command
 export interface ICommand {
-    data: SlashCommandBuilder,
-    execute(interaction: Interaction<CacheType>): Promise<any>
+    data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder,
+    subcommands?: Collection<string, ISubCommand>,
+    execute(interaction: CommandInteraction<CacheType>): Promise<any>
+}
+
+// Defines the structure of each command
+export interface ISubCommand {
+    data: SlashCommandSubcommandBuilder,
+    execute(interaction: CommandInteraction<CacheType>): Promise<any>
 }
 
 // Defines the structure of each event

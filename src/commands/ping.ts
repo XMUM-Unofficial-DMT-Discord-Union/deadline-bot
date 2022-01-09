@@ -1,11 +1,13 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { CacheType, CommandInteraction } from "discord.js";
+import { ICommand } from "../types";
 
-module.exports = {
+const command: ICommand = {
     data: new SlashCommandBuilder()
         .setName('ping')
         .setDescription('Replies with Pong!'),
-    async execute(interaction: CommandInteraction<CacheType>) {
-        await interaction.reply('Pong!');
+    async execute(interaction) {
+        await interaction.reply({ content: 'Pong! :ping_pong:', ephemeral: true });
     }
 }
+
+module.exports = command;

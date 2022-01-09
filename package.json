@@ -1,12 +1,11 @@
 {
   "main": "build/main.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run clean && tsc",
+    "clean": "rm -rf build/",
     "dev-update": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.development.local",
-    "dev-purge": "npm run build && node -r dotenv/config build/purge_commands.js dotenv_config_path=./.env.development.local",
     "dev-start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.development.local",
     "update": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.production.local",
-    "purge": "npm run build && node -r dotenv/config build/purge_commands.js dotenv_config_path=./.env.production.local",
     "start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.production.local"
   },
   "dependencies": {
