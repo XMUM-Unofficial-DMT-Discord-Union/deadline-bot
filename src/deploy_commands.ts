@@ -1,9 +1,9 @@
 import { REST } from '@discordjs/rest';
-import { ApplicationCommandPermissionType, Routes } from 'discord-api-types/v9';
+import { ApplicationCommandPermissionType, RESTPostAPIApplicationCommandsJSONBody, Routes } from 'discord-api-types/v9';
 import { Permissions } from 'discord.js';
-import BOT_COMMANDS from './command_utilities';
+import BOT_COMMANDS from './commands';
 
-const commands: any = [];
+const commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
 
 BOT_COMMANDS.each((command) => {
     commands.push(command.data.toJSON());
@@ -13,16 +13,10 @@ const rest = new REST({ version: '9' }).setToken(process.env.CLIENT_TOKEN as str
 
 // Bulk register each command
 rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID as string, process.env.GUILD_ID as string), { body: commands })
-    .then(() => console.log('Successfully registered application commands.'))
-    .catch(() => console.error());
+    .then((commands) => {
+        console.log('Successfully registered application commands.');
 
-
-// Also each command should be accessible to admins
-// First get each command's id
-rest.get(Routes.applicationGuildCommands(process.env.CLIENT_ID as string, process.env.GUILD_ID as string))
-    .then(commands => {
-
-        const permissions: object[] = [];
+        let permissions: object[] = [];
 
         rest.get(Routes.guildRoles(process.env.GUILD_ID as string))
             .then(roles => {
@@ -30,8 +24,6 @@ rest.get(Routes.applicationGuildCommands(process.env.CLIENT_ID as string, proces
 
                     // Check whether the role is for a bot and has admin permissions
                     if ((BigInt(role.permissions) & Permissions.FLAGS.ADMINISTRATOR) && (!('tags' in role) || ('tags' in role && !('bot_id' in role.tags)))) {
-                        console.log(`${role.name} has admin permissions!`);
-
                         // Allow this role to use the command
                         permissions.push({
                             id: role.id,
@@ -51,10 +43,18 @@ rest.get(Routes.applicationGuildCommands(process.env.CLIENT_ID as string, proces
                         }
                     })
                 })
-                    .catch(error => console.error(error));
+                    .then(() => console.log('Respective roles have been given permissions.'))
+                    .catch(error => {
+                        console.error('Setting permissions failed');
+                        console.error(error);
+                    });
             })
-            .catch(error => console.error(error));
-
+            .catch(error => {
+                console.error('Fetching guild roles failed.');
+                console.error(error);
+            });
     })
-    .catch(error => console.error(error));
-
+    .catch(error => {
+        console.error('Registering application commands failed.');
+        console.error(error);
+    });

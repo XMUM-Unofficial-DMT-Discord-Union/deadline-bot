@@ -1,5 +1,5 @@
 import { CacheType, Interaction, Permissions } from "discord.js";
-import BOT_COMMANDS from "../command_utilities";
+import BOT_COMMANDS from "../commands";
 
 module.exports = {
     once: false,
