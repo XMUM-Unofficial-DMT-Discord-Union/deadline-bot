@@ -1,13 +1,7 @@
-import { SlashCommandBuilder } from "@discordjs/builders";
-import { ICommand } from "../types";
+import { createCommand } from "../utilities";
 
-const command: ICommand = {
-    data: new SlashCommandBuilder()
-        .setName('ping')
-        .setDescription('Replies with Pong!'),
-    async execute(interaction) {
-        await interaction.reply({ content: 'Pong! :ping_pong:', ephemeral: true });
-    }
-}
+const command = createCommand('ping', 'Replies with Pong!', (_) => _, async (interaction) => {
+    await interaction.reply({ content: 'Pong! :ping_pong:', ephemeral: true });
+});
 
 module.exports = command;
