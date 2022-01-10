@@ -37,7 +37,7 @@ const command: ISubCommand = {
                 },
                 {
                     name: 'Development Status',
-                    value: '/admin',
+                    value: 'Idk sia, maybe help me on this',
                     inline: true
                 }
             ],

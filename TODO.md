@@ -24,7 +24,7 @@
  * apply
    * admin
 
-/(command)
+/ (command)
  * course
    * enroll (name)
    * leave (name)
