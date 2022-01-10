@@ -1,12 +1,12 @@
 {
   "main": "build/main.js",
   "scripts": {
-    "build": "npm run clean && tsc",
-    "clean": "rm -rf build/",
+    "build": "sudo npm run clean && tsc",
+    "clean": "sudo rm -rf build/",
     "dev-update": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.development.local",
     "dev-start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.development.local",
-    "pre-start": "npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.production.local",
-    "start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.production.local"
+    "pre-start": "sudo npm run build && node -r dotenv/config build/deploy_commands.js dotenv_config_path=./.env.production.local",
+    "start": "sudo npm run build && node -r dotenv/config . dotenv_config_path=./.env.production.local"
   },
   "dependencies": {
     "@discordjs/builders": "^0.11.0",
