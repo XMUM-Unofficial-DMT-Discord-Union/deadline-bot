@@ -1,14 +1,14 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { Collection } from 'discord.js';
 
-import { ICommand } from './types';
-import directoryFiles from './utilities';
+import { Command, CommandGroup } from './types';
+import { directoryFiles } from './utilities';
 
-const BOT_COMMANDS = new Collection<string, ICommand>();
+const BOT_COMMANDS = new Collection<string, Command | CommandGroup>();
 
-for (const command of directoryFiles<ICommand>(__filename, 'commands')) {
+for (const command of directoryFiles<Command | CommandGroup>(__filename, 'commands')) {
     // By default, only Adminstrators can see the commands
-    (command.data as SlashCommandBuilder).setDefaultPermission(false);
+    command.data.setDefaultPermission(false);
 
     BOT_COMMANDS.set(command.data.name, command);
 }

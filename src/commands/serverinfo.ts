@@ -1,13 +1,7 @@
-import { SlashCommandBuilder } from "@discordjs/builders";
-import { ICommand } from '../types';
+import { createCommand } from "../utilities";
 
-const command: ICommand = {
-    data: new SlashCommandBuilder()
-        .setName('serverinfo')
-        .setDescription('Replies with server info!'),
-    async execute(interaction) {
-        await interaction.reply({ content: `Server Name: ${interaction.guild?.name}\nTotal members: ${interaction.guild?.memberCount}`, ephemeral: true });
-    }
-}
+const command = createCommand('serverinfo', 'Replies with server info!', (_) => _, async (interaction) => {
+    await interaction.reply({ content: `Server Name: ${interaction.guild?.name}\nTotal members: ${interaction.guild?.memberCount}`, ephemeral: true });
+})
 
 module.exports = command;
