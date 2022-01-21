@@ -11,10 +11,12 @@
   "dependencies": {
     "@discordjs/builders": "^0.11.0",
     "@discordjs/rest": "^0.2.0-canary.0",
+    "@node-redis/json": "^1.0.1",
     "@types/node": "*",
     "discord-api-types": "^0.26.1",
     "discord.js": "^13.5.0",
     "dotenv": "^10.0.0",
+    "firebase": "^9.6.3",
     "typescript": "^4.5.4"
   },
   "devDependencies": {

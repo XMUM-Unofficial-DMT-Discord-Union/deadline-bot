@@ -49,3 +49,5 @@ Future Commands
 * Allow members to suggest changing incorrect deadlines
 * Dynamic role permissions upon new channel
 * Display channel info on invocated channel
+* Mod/Admin Meetings reminder
+* Event Notifications

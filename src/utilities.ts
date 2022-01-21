@@ -1,8 +1,13 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
-import { CacheType, Collection, CommandInteraction } from 'discord.js';
+import { CacheType, Collection, CommandInteraction, Guild } from 'discord.js';
+import { collection, collectionGroup, doc, getDoc, getDocs } from 'firebase/firestore';
+import 'firebase/firestore';
+
 import fs from 'fs';
 import path from 'path';
-import { Command, CommandGroup, SubCommand, SubCommandGroup } from './types';
+
+import { Command, CommandGroup, Permissions, SubCommand, SubCommandGroup } from './types';
+import { firestoreApp } from './database';
 
 /**
  * Given a filename and a directory, returns an iterator allowing module iteration
@@ -23,13 +28,14 @@ export function* directoryFiles<T>(filename: string, directory: string) {
  * @param description The description of this command
  * @returns A well-defined object associated with this command type
  */
-export function createCommand(name: string, description: string,
+export function createCommand(name: string, description: string, permission: Permissions,
     subcommandBuilderCallback: (builder: SlashCommandBuilder) => SlashCommandBuilder,
     interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any>): Command {
     return {
         data: subcommandBuilderCallback(new SlashCommandBuilder()
             .setName(name)
             .setDescription(description)),
+        permission: permission,
         execute: interactionCallback
     };
 }
@@ -42,11 +48,12 @@ export function createCommand(name: string, description: string,
  * @param interactionCallback A callback when this command group is executed (Subcommand handling is done after this callback)
  * @returns A well-defined object associated with this command type, with an empty `subcommands` collection
  */
-export function createCommandGroup(name: string, description: string, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): CommandGroup {
+export function createCommandGroup(name: string, description: string, permission: Permissions, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): CommandGroup {
     const command = {
         data: new SlashCommandBuilder()
             .setName(name)
             .setDescription(description),
+        permission: permission,
         subcommands: new Collection<string, SubCommandGroup | SubCommand>(),
         execute: async (interaction: CommandInteraction<CacheType>) => {
             interactionCallback(interaction);

@@ -1,9 +1,10 @@
-import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder, SlashCommandSubcommandsOnlyBuilder } from "@discordjs/builders";
+import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from "@discordjs/builders";
 import { CacheType, Collection, CommandInteraction } from "discord.js";
 
 // Defines the structure of each command
 export type Command = {
     data: SlashCommandBuilder,
+    permission?: Permissions,
     execute(interaction: CommandInteraction<CacheType>): Promise<any>
 }
 
@@ -15,6 +16,7 @@ export type CommandGroup = Command & {
 // Defines a group of (sub)commands
 export type SubCommandGroup = {
     data: SlashCommandSubcommandGroupBuilder,
+    permission?: Permissions,
     bindTo(command: CommandGroup): void,
     subcommands: Collection<string, SubCommand>,
     execute(interaction: CommandInteraction<CacheType>): Promise<any>
@@ -23,6 +25,7 @@ export type SubCommandGroup = {
 // Defines the structure of each Subcommand
 export type SubCommand = {
     data: SlashCommandSubcommandBuilder,
+    permission?: Permissions,
     bindTo(command: CommandGroup | SubCommandGroup): void,
     execute(interaction: CommandInteraction<CacheType>): Promise<any>
 }
@@ -32,4 +35,10 @@ export type Event = {
     once: boolean,
     name: string,
     execute(...args: any[]): any
+}
+
+export enum Permissions {
+    ADMIN = 'admin',
+    MOD = 'mod',
+    EVERYONE = 'everyone'
 }

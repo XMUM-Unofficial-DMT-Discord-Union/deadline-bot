@@ -1,6 +1,7 @@
+import { Permissions } from "../types";
 import { createCommand } from "../utilities";
 
-const command = createCommand('bonk', 'BONK someone!', (_) => _, async (interaction) => {
+const command = createCommand('bonk', 'BONK someone!', Permissions.EVERYONE, (_) => _, async (interaction) => {
     await interaction.reply({
         files: [
             {
