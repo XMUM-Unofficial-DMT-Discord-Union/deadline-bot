@@ -1,11 +1,11 @@
-import { RESTPutAPIApplicationGuildCommandsResult } from 'discord-api-types';
-import { collection, CollectionReference, doc, DocumentData, DocumentReference, getDoc, getDocs, getDocsFromServer, query, setDoc, updateDoc, where, writeBatch, WriteBatch } from 'firebase/firestore';
+import { collection, CollectionReference, doc, DocumentData, DocumentReference, getDoc, getDocs, writeBatch, WriteBatch } from 'firebase/firestore';
 
 import { firestoreApp } from '../database';
-
+import { Course } from './course';
 export class Guild {
     _rootDocument: DocumentReference<DocumentData>;
     _rolesCollection: CollectionReference<DocumentData>;
+    _coursesCollection: CollectionReference<Course>;
 
     _roles: {
         [role: string]: {
@@ -23,6 +23,7 @@ export class Guild {
     constructor(id: string) {
         this._rootDocument = doc(firestoreApp, `guilds/${id}`);
         this._rolesCollection = collection(this._rootDocument, 'roles');
+        this._coursesCollection = collection(this._rootDocument, 'courses').withConverter(Course.converter());
 
         this._roles = {};
     }
@@ -66,6 +67,31 @@ export class Guild {
             id: id
         }, { merge: true, mergeFields: ['id'] });
     }
+
+    async getAllCourses(): Promise<Array<Course>> {
+        return (await getDocs(this._coursesCollection)).docs.map(document => document.data());
+    }
+
+    async getCourse(name: string): Promise<Course | undefined> {
+        return (await getDoc(doc(this._coursesCollection, name))).data();
+    }
+
+    addCourse(course: Course) {
+        this.startWriteBatch();
+
+        this._writeBatch.set(doc(this._coursesCollection, course._name), course);
+    }
+
+    updateCourse(course: Course) {
+        /*
+        this.startWriteBatch();
+
+        this._writeBatch.update(doc(this._coursesCollection, course._name), course.members());
+        */
+        this.addCourse(course);
+    }
+
+    //addCourseDeadline(courseName: string, )
 
     async save() {
         if (!this.writeBatchStarted(this._writeBatch)) {
