@@ -2,12 +2,10 @@ import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcomm
 import { CacheType, Collection, CommandInteraction } from 'discord.js';
 import 'firebase/firestore';
 
-import scheduler from 'node-schedule';
 import fs from 'fs';
 import path from 'path';
 
 import { Command, CommandGroup, Permissions, SubCommand, SubCommandGroup } from './types';
-import { Guild } from './models/guild';
 
 /**
  * Given a filename and a directory, returns an iterator allowing module iteration
