@@ -1,5 +1,7 @@
-import { createSubCommandGroup } from '../../utilities';
+import { fileURLToPath } from 'url';
 
-const command = createSubCommandGroup('deadline', 'Kicks a member', __filename);
+import { createSubCommandGroup } from '../../utilities.js';
 
-module.exports = command;
+const command = await createSubCommandGroup('deadline', 'Kicks a member', fileURLToPath(import.meta.url));
+
+export default command;

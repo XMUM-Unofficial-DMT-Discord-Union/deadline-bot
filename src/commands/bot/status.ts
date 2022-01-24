@@ -1,6 +1,7 @@
 import { Embed } from "@discordjs/builders";
 import { MessageActionRow, MessageButton } from "discord.js";
-import { createSubCommand } from "../../utilities";
+
+import { createSubCommand } from "../../utilities.js";
 
 const command = createSubCommand('status', 'Shows the current status of the bot', (_) => _, async (interaction) => {
     const time = new Date(Date.UTC(0, 0, 0, 0, 0, 0, interaction.client.uptime as number));
@@ -53,4 +54,4 @@ const command = createSubCommand('status', 'Shows the current status of the bot'
     });
 });
 
-module.exports = command;
+export default command;

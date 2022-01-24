@@ -1,9 +1,9 @@
 import { REST } from '@discordjs/rest';
-import { ApplicationCommandPermissionType, RESTGetAPIGuildRolesResult, RESTPostAPIApplicationCommandsJSONBody, RESTPostAPIGuildRoleResult, RESTPutAPIApplicationGuildCommandsResult, RESTPutAPIGuildApplicationCommandsPermissionsJSONBody, Routes } from 'discord-api-types/v9';
+import { ApplicationCommandPermissionType, RESTGetAPIGuildRolesResult, RESTPostAPIApplicationCommandsJSONBody, RESTPostAPIGuildRoleResult, RESTPutAPIApplicationGuildCommandsResult, Routes } from 'discord-api-types/v9';
 
-import BOT_COMMANDS from './commands';
-import { Guild } from './models/guild';
-import { Permissions } from './types';
+import BOT_COMMANDS from './commands.js';
+import { Guild } from './models/guild.js';
+import { Permissions } from './types.js';
 
 const commandsJSON: RESTPostAPIApplicationCommandsJSONBody[] = [];
 

@@ -1,5 +1,5 @@
-import { createSubCommand, unimplementedCommandCallback } from '../../utilities';
+import { createSubCommand, unimplementedCommandCallback } from '../../utilities.js';
 
 const command = createSubCommand('verify', 'Verifies a member', (_) => _, unimplementedCommandCallback());
 
-module.exports = command;
+export default command;

@@ -1,5 +1,5 @@
-import { Permissions } from "../types";
-import { createCommand } from "../utilities";
+import { Permissions } from "../types.js";
+import { createCommand } from "../utilities.js";
 
 const command = createCommand('bonk', 'BONK someone!', Permissions.EVERYONE, (_) => _, async (interaction) => {
     await interaction.reply({
@@ -12,4 +12,4 @@ const command = createCommand('bonk', 'BONK someone!', Permissions.EVERYONE, (_)
     });
 })
 
-module.exports = command;
+export default command;

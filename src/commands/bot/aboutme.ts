@@ -1,5 +1,5 @@
-import { createSubCommand, unimplementedCommandCallback } from '../../utilities';
+import { createSubCommand, unimplementedCommandCallback } from '../../utilities.js';
 
 const command = createSubCommand('aboutme', 'Information about the developer', (_) => _, unimplementedCommandCallback());
 
-module.exports = command;
+export default command;

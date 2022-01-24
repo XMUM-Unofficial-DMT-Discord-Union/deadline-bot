@@ -1,6 +1,6 @@
 import { Client } from "discord.js";
 
-module.exports = {
+export default {
     once: true,
     name: 'ready',
     async execute(client: Client) {

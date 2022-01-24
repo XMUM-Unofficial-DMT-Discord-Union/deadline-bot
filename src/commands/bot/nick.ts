@@ -1,4 +1,4 @@
-import { createSubCommand } from "../../utilities";
+import { createSubCommand } from "../../utilities.js";
 
 const command = createSubCommand('nick', 'Sets the nickname of the bot',
     (builder) => builder.addStringOption(option =>
@@ -12,4 +12,4 @@ const command = createSubCommand('nick', 'Sets the nickname of the bot',
         await interaction.reply({ content: `The bot\'s nickname has been set successfully!`, ephemeral: true })
     })
 
-module.exports = command;
+export default command;

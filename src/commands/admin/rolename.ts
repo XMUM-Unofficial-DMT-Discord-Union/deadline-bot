@@ -1,5 +1,5 @@
-import { Guild } from "../../models/guild";
-import { createSubCommand } from "../../utilities";
+import { Guild } from "../../models/guild.js";
+import { createSubCommand } from "../../utilities.js";
 
 const command = createSubCommand('rolename', 'Sets the rolename of Admin',
     (builder) => builder.addStringOption(option =>
@@ -18,4 +18,4 @@ const command = createSubCommand('rolename', 'Sets the rolename of Admin',
         await interaction.reply({ content: `The admin role name has been set successfully!`, ephemeral: true })
     })
 
-module.exports = command;
+export default command;

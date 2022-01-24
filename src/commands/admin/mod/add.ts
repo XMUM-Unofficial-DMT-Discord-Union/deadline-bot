@@ -1,7 +1,7 @@
 import { GuildMember } from "discord.js";
 
-import { Guild } from "../../../models/guild";
-import { createSubCommand } from "../../../utilities";
+import { Guild } from "../../../models/guild.js";
+import { createSubCommand } from "../../../utilities.js";
 
 const command = createSubCommand('add', 'Adds a moderator',
     (builder) => builder.addUserOption(option => option.setName('target_user')
@@ -37,4 +37,4 @@ const command = createSubCommand('add', 'Adds a moderator',
         }
     })
 
-module.exports = command
+export default command;

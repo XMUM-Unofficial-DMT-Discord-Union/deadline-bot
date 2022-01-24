@@ -1,6 +1,9 @@
-import { Permissions } from '../types';
-import { createCommandGroup } from '../utilities';
+import { fileURLToPath } from 'url';
 
-const command = createCommandGroup('mod', 'Mod related commands', Permissions.MOD, __filename);
+import { Permissions } from '../types.js';
+import { createCommandGroup } from '../utilities.js';
 
-module.exports = command;
+const command =
+    await createCommandGroup('mod', 'Mod related commands', Permissions.MOD, fileURLToPath(import.meta.url));
+
+export default command;

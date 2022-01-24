@@ -1,5 +1,8 @@
-import { createSubCommandGroup } from '../../utilities';
+import { fileURLToPath } from 'url';
 
-const command = createSubCommandGroup('apply', 'Application related commands.', __filename);
+import { createSubCommandGroup } from '../../utilities.js';
 
-module.exports = command;
+const command =
+    await createSubCommandGroup('apply', 'Application related commands.', fileURLToPath(import.meta.url));
+
+export default command;

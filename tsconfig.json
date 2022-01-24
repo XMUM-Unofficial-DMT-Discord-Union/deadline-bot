@@ -1,8 +1,9 @@
 {
     "extends": "@tsconfig/node16/tsconfig.json",
     "compilerOptions": {
-        "module": "ESNext",
+        "module": "ES2022",
         "moduleResolution": "node",
+        "target": "ESNext",
         "resolveJsonModule": true,
         "esModuleInterop": true,
         "outDir": "build",

@@ -1,7 +1,8 @@
-import { CacheType, Interaction, Permissions } from "discord.js";
-import BOT_COMMANDS from "../commands";
+import { CacheType, Interaction } from "discord.js";
 
-module.exports = {
+import BOT_COMMANDS from "../commands.js";
+
+export default {
     once: false,
     name: 'interactionCreate',
     async execute(interaction: Interaction<CacheType>) {

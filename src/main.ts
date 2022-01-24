@@ -1,16 +1,20 @@
 import { Client, Intents } from 'discord.js';
 
-import { Event } from './types';
-import { directoryFiles } from './utilities';
-import { initializeScheduler } from './scheduler';
+import { Event } from './types.js';
+import { directoryFiles } from './utilities.js';
+import { initializeScheduler } from './scheduler.js';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './database';
+import { auth } from './database.js';
+import { fileURLToPath } from 'url';
+
+
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MEMBERS, Intents.FLAGS.DIRECT_MESSAGES] });
 
 // Dynamically read all event files
-for (const event of directoryFiles<Event>(__filename, 'events')) {
+for (const eventPromise of directoryFiles<Event>(fileURLToPath(import.meta.url), 'events')) {
 
+    const event = (await eventPromise).default;
     if (event.once)
         client.once(event.name, (...args) => event.execute(...args));
     else

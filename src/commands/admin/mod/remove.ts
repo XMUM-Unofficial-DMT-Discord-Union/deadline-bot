@@ -1,6 +1,6 @@
 import { GuildMember } from "discord.js";
-import { Guild } from "../../../models/guild";
-import { createSubCommand, unimplementedCommandCallback } from "../../../utilities";
+import { Guild } from "../../../models/guild.js";
+import { createSubCommand } from "../../../utilities.js";
 
 const command = createSubCommand('remove', 'Removes a moderator',
     (builder) => builder.addUserOption(option => option.setName('target_user')
@@ -24,4 +24,4 @@ const command = createSubCommand('remove', 'Removes a moderator',
             }
         })
 
-module.exports = command
+export default command;

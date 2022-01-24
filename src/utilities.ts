@@ -5,7 +5,7 @@ import 'firebase/firestore';
 import fs from 'fs';
 import path from 'path';
 
-import { Command, CommandGroup, Permissions, SubCommand, SubCommandGroup } from './types';
+import { Command, CommandGroup, Permissions, SubCommand, SubCommandGroup } from './types.js';
 
 /**
  * Given a filename and a directory, returns an iterator allowing module iteration
@@ -16,7 +16,7 @@ export function* directoryFiles<T>(filename: string, directory: string) {
     const files = fs.readdirSync(`${path.dirname(filename)}${path.sep}${directory}`).filter(file => file.endsWith(path.extname(filename)));
 
     for (const file of files) {
-        yield require(`${path.dirname(filename)}${path.sep}${directory}${path.sep}${file}`) as T;
+        yield import(`${path.dirname(filename)}${path.sep}${directory}${path.sep}${file}`) as Promise<{ default: T }>;
     }
 }
 
@@ -46,7 +46,7 @@ export function createCommand(name: string, description: string, permission: Per
  * @param interactionCallback A callback when this command group is executed (Subcommand handling is done after this callback)
  * @returns A well-defined object associated with this command type, with an empty `subcommands` collection
  */
-export function createCommandGroup(name: string, description: string, permission: Permissions, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): CommandGroup {
+export async function createCommandGroup(name: string, description: string, permission: Permissions, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<CommandGroup> {
     const command = {
         data: new SlashCommandBuilder()
             .setName(name)
@@ -67,7 +67,8 @@ export function createCommandGroup(name: string, description: string, permission
         }
     };
 
-    for (const subcommand of directoryFiles<SubCommandGroup | SubCommand>(filename, name)) {
+    for (const subcommandPromise of directoryFiles<SubCommandGroup | SubCommand>(filename, name)) {
+        const subcommand = (await subcommandPromise).default;
         subcommand.bindTo(command);
         command.subcommands?.set(subcommand.data.name, subcommand);
     }
@@ -83,7 +84,7 @@ export function createCommandGroup(name: string, description: string, permission
  * @param interactionCallback A callback when this command group is executed (Subcommand handling has been handled)
  * @returns A well-defined object associated with this command type
  */
-export function createSubCommandGroup(name: string, description: string, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): SubCommandGroup {
+export async function createSubCommandGroup(name: string, description: string, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<SubCommandGroup> {
     const command = {
         data: new SlashCommandSubcommandGroupBuilder()
             .setName(name)
@@ -104,7 +105,8 @@ export function createSubCommandGroup(name: string, description: string, filenam
         }
     };
 
-    for (const subcommand of directoryFiles<SubCommand>(filename, name)) {
+    for (const subcommandPromise of directoryFiles<SubCommand>(filename, name)) {
+        const subcommand = (await subcommandPromise).default;
         subcommand.bindTo(command);
         command.subcommands?.set(subcommand.data.name, subcommand);
     }

@@ -1,9 +1,9 @@
 import { Client, TextChannel } from 'discord.js';
 import scheduler from 'node-schedule';
-import { Deadline } from './models/course';
 
-import { Guild } from './models/guild';
-import { Student } from './models/student';
+import { Deadline } from './models/course.js';
+import { Guild } from './models/guild.js';
+import { Student } from './models/student.js';
 
 /**
  * Starts up node-schedule and scours into the database, reading any deadlines and initializes them as schedules

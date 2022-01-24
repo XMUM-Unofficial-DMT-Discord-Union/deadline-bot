@@ -1,11 +1,14 @@
 import { Collection } from 'discord.js';
+import { fileURLToPath } from 'url';
 
-import { Command, CommandGroup, Permissions } from './types';
-import { directoryFiles } from './utilities';
+import { Command, CommandGroup, Permissions } from './types.js';
+import { directoryFiles } from './utilities.js';
 
 const BOT_COMMANDS = new Collection<string, Command | CommandGroup>();
 
-for (const command of directoryFiles<Command | CommandGroup>(__filename, 'commands')) {
+for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPath(import.meta.url), 'commands')) {
+
+    const command = (await commandPromise).default;
 
     switch (command.permission) {
         case undefined || Permissions.EVERYONE:

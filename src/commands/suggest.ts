@@ -1,6 +1,8 @@
-import { Permissions } from '../types';
-import { createCommandGroup } from '../utilities';
+import { fileURLToPath } from 'url';
 
-const command = createCommandGroup('suggest', 'Suggestion related commands', Permissions.EVERYONE, __filename);
+import { Permissions } from '../types.js';
+import { createCommandGroup } from '../utilities.js';
 
-module.exports = command;
+const command = await createCommandGroup('suggest', 'Suggestion related commands', Permissions.EVERYONE, fileURLToPath(import.meta.url));
+
+export default command;

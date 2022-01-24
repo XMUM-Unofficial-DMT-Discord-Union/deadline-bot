@@ -1,5 +1,6 @@
 {
   "main": "build/main.js",
+  "type": "module",
   "scripts": {
     "build": "sudo npm run clean && tsc",
     "clean": "sudo rm -rf build/",

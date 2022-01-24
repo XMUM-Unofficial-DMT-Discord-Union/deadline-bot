@@ -1,7 +1,7 @@
 import { collection, CollectionReference, doc, DocumentData, DocumentReference, getDoc, getDocs, writeBatch, WriteBatch } from 'firebase/firestore';
 
-import { firestoreApp } from '../database';
-import { Course } from './course';
+import { firestoreApp } from '../database.js';
+import { Course } from './course.js';
 export class Guild {
     _rootDocument: DocumentReference<DocumentData>;
     _rolesCollection: CollectionReference<DocumentData>;

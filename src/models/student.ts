@@ -1,8 +1,7 @@
 import 'firebase/firestore';
 import { doc, FirestoreDataConverter, getDoc } from 'firebase/firestore';
 
-import '../database';
-import { firestoreApp } from '../database';
+import { firestoreApp } from '../database.js';
 
 export class Student {
     _name: string
