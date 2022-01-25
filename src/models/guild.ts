@@ -2,10 +2,15 @@ import { collection, CollectionReference, doc, DocumentData, DocumentReference, 
 
 import { firestoreApp } from '../database.js';
 import { Course } from './course.js';
+
+type WriteCallback = () => void;
+
 export class Guild {
     _rootDocument: DocumentReference<DocumentData>;
     _rolesCollection: CollectionReference<DocumentData>;
     _coursesCollection: CollectionReference<Course>;
+
+    _courses: { [name: string]: Course };
 
     _roles: {
         [role: string]: {
@@ -19,13 +24,18 @@ export class Guild {
     };
 
     _writeBatch: WriteBatch | undefined;
+    _writeCallbacks: Array<WriteCallback>;
 
     constructor(id: string) {
         this._rootDocument = doc(firestoreApp, `guilds/${id}`);
         this._rolesCollection = collection(this._rootDocument, 'roles');
         this._coursesCollection = collection(this._rootDocument, 'courses').withConverter(Course.converter());
 
+        this._courses = {};
+
         this._roles = {};
+
+        this._writeCallbacks = [];
     }
 
     /**
@@ -40,9 +50,7 @@ export class Guild {
         return true;
     }
 
-    async getAdminRoleDetails() {
-        this._roles['admin'] = (await getDoc(doc(this._rolesCollection, 'admin'))).data() as any;
-
+    getAdminRoleDetails() {
         return this._roles['admin'];
     }
 
@@ -52,11 +60,12 @@ export class Guild {
         this._writeBatch.set(doc(this._rolesCollection, 'admin'), {
             id: id
         }, { merge: true, mergeFields: ['id'] });
+
+        // Append a pending write to this instance as well
+        this._writeCallbacks.push(() => { this._roles['admin'].id = id });
     }
 
-    async getModRoleDetails() {
-        this._roles['mod'] = (await getDoc(doc(this._rolesCollection, 'mod'))).data() as any;
-
+    getModRoleDetails() {
         return this._roles['mod'];
     }
 
@@ -66,28 +75,34 @@ export class Guild {
         this._writeBatch.set(doc(this._rolesCollection, 'mod'), {
             id: id
         }, { merge: true, mergeFields: ['id'] });
+
+        // Append a pending write to this instance as well
+        this._writeCallbacks.push(() => { this._roles['mod'].id = id });
     }
 
-    async getAllCourses(): Promise<Array<Course>> {
-        return (await getDocs(this._coursesCollection)).docs.map(document => document.data());
+    getAllCourses() {
+        return this._courses;
     }
 
-    async getCourse(name: string): Promise<Course | undefined> {
-        return (await getDoc(doc(this._coursesCollection, name))).data();
+    getCourse(name: string): Course | undefined {
+        if (name in this._courses)
+            return this._courses[name];
+        return undefined;
     }
 
     addCourse(course: Course) {
         this.startWriteBatch();
 
-        this._writeBatch.set(doc(this._coursesCollection, course._name), course);
+        this._writeBatch.set(doc(this._coursesCollection, course.name), course);
+
+        // Append a pending write to this instance as well
+        this._writeCallbacks.push(() => {
+            // For safety reasons, we might "add" to an existing course: Overwrite that
+            this._courses[course.name] = course;
+        });
     }
 
     updateCourse(course: Course) {
-        /*
-        this.startWriteBatch();
-
-        this._writeBatch.update(doc(this._coursesCollection, course._name), course.members());
-        */
         this.addCourse(course);
     }
 
@@ -103,17 +118,25 @@ export class Guild {
         await this._writeBatch.commit();
         console.log('Saved!');
 
+        // Also save these writes to this instance
+        while (this._writeCallbacks.length !== 0)
+            (this._writeCallbacks.pop() as WriteCallback)();
 
         // Remove the instance afterwards
         this._writeBatch = undefined;
     }
 
     private async build() {
-        const result = await getDocs(this._rolesCollection);
+        const rolesResult = await getDocs(this._rolesCollection);
+        const coursesResult = await getDocs(this._coursesCollection);
 
-        result.forEach(document => {
+        rolesResult.forEach(document => {
             this._roles[document.id] = document.data() as any;
         })
+
+        coursesResult.forEach(snapshot => {
+            this._courses[snapshot.data().name] = snapshot.data();
+        });
     }
 
     /**

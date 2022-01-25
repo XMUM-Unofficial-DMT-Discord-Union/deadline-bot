@@ -2,8 +2,8 @@ import { REST } from '@discordjs/rest';
 import { ApplicationCommandPermissionType, RESTGetAPIGuildRolesResult, RESTPostAPIApplicationCommandsJSONBody, RESTPostAPIGuildRoleResult, RESTPutAPIApplicationGuildCommandsResult, Routes } from 'discord-api-types/v9';
 
 import BOT_COMMANDS from './commands.js';
-import { Guild } from './models/guild.js';
 import { Permissions } from './types.js';
+import { GUILD } from './utilities.js';
 
 const commandsJSON: RESTPostAPIApplicationCommandsJSONBody[] = [];
 
@@ -24,9 +24,7 @@ console.log('Successfully registered application commands.');
 let permissions: any[] = [];
 
 // Before fetching guild roles, check whether we have stored it in database
-const guild = await Guild.get(process.env.GUILD_ID as string);
-
-if (!guild.exists()) {
+if (!GUILD.exists()) {
     // If guild does not exist in the database, we, by default find:
     // 1) Role with the name "Admins"
     // 2) Role with the name "Mods"
@@ -41,11 +39,11 @@ if (!guild.exists()) {
             if (adminFound && modFound)
                 break;
             if (!adminFound && role.name === 'Admins') {
-                guild.updateAdminRoleId(role.id);
+                GUILD.updateAdminRoleId(role.id);
                 adminFound = true;
             }
             if (!modFound && role.name === 'Mods') {
-                guild.updateModRoleId(role.id);
+                GUILD.updateModRoleId(role.id);
                 modFound = true;
             }
         }
@@ -59,7 +57,7 @@ if (!guild.exists()) {
                 }
             });
 
-            guild.updateAdminRoleId((result as RESTPostAPIGuildRoleResult).id);
+            GUILD.updateAdminRoleId((result as RESTPostAPIGuildRoleResult).id);
         }
 
         if (!modFound) {
@@ -71,18 +69,18 @@ if (!guild.exists()) {
                 }
             });
 
-            guild.updateModRoleId((result as RESTPostAPIGuildRoleResult).id);
+            GUILD.updateModRoleId((result as RESTPostAPIGuildRoleResult).id);
         }
 
         // Commit these changes to the database
-        await guild.save();
+        await GUILD.save();
     }
 
 }
 
 // Now we have ensured that the guild exists, we can fetch admin and mod roles
-const adminId = (await guild.getAdminRoleDetails()).id;
-const modId = (await guild.getModRoleDetails()).id;
+const adminId = GUILD.getAdminRoleDetails().id;
+const modId = GUILD.getModRoleDetails().id;
 
 // Now we associate a command to an id, and the respective permission
 for (let command of BOT_COMMANDS.entries()) {
