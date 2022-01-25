@@ -1,7 +1,6 @@
 import { GuildMember } from "discord.js";
 
-import { Guild } from "../../../models/guild.js";
-import { createSubCommand } from "../../../utilities.js";
+import { createSubCommand, GUILD } from "../../../utilities.js";
 
 const command = createSubCommand('add', 'Adds a moderator',
     (builder) => builder.addUserOption(option => option.setName('target_user')
@@ -10,11 +9,8 @@ const command = createSubCommand('add', 'Adds a moderator',
     , async (interaction) => {
         const targetMember = interaction.options.getMember('target_user', true) as GuildMember;
 
-        // First get guild
-        const guild = await Guild.get(process.env.GUILD_ID as string);
-
-        const modId = (await guild.getModRoleDetails()).id;
-        const adminId = (await guild.getAdminRoleDetails()).id;
+        const modId = GUILD.getModRoleDetails().id;
+        const adminId = GUILD.getAdminRoleDetails().id;
 
         // If the member is not verified
         if (targetMember.roles.resolve('922799498080690217') === null)

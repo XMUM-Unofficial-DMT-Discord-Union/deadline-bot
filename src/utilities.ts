@@ -4,6 +4,7 @@ import 'firebase/firestore';
 
 import fs from 'fs';
 import path from 'path';
+import { Guild } from './models/guild.js';
 
 import { Command, CommandGroup, Permissions, SubCommand, SubCommandGroup } from './types.js';
 
@@ -142,3 +143,5 @@ export function unimplementedCommandCallback() {
         await interaction.reply({ content: `Unfortunately, this command hasn't been implemented yet. Come back later!`, ephemeral: true });
     }
 }
+
+export const GUILD = await Guild.get(process.env.GUILD_ID as string);
