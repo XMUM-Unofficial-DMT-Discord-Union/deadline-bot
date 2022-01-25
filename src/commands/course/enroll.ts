@@ -1,12 +1,6 @@
-import { ApplicationCommandOptionChoice, AutocompleteInteraction, CacheType } from 'discord.js';
-import { Course } from '../../models/course.js';
+import { AutocompleteInteraction } from 'discord.js';
 
-import { Guild } from '../../models/guild.js';
-import { createSubCommand } from '../../utilities.js';
-
-const guild = await Guild.get(process.env.GUILD_ID as string);
-
-let courses: Course[] = [];
+import { createSubCommand, GUILD } from '../../utilities.js';
 
 const command = createSubCommand('enroll', 'Enroll into a course',
     builder => builder.addStringOption(option => option.setName('course')
@@ -16,14 +10,13 @@ const command = createSubCommand('enroll', 'Enroll into a course',
     async interaction => {
 
         if (interaction.isAutocomplete()) {
-            courses = await guild.getAllCourses();
             await (interaction as AutocompleteInteraction).respond((_ => {
                 let result = [];
-                for (let course of courses) {
-                    if (course._students.includes((interaction as AutocompleteInteraction).user.id))
+                for (let course of Object.values(GUILD.getAllCourses())) {
+                    if (course.students.includes((interaction as AutocompleteInteraction).user.id))
                         continue;
 
-                    result.push({ name: course._name, value: course._name })
+                    result.push({ name: course.name, value: course.name })
                 }
 
                 return result;
@@ -33,18 +26,18 @@ const command = createSubCommand('enroll', 'Enroll into a course',
 
         const courseName = interaction.options.getString('course', true);
 
-        const course = courses.find(course => course._name === courseName);
+        const course = GUILD.getCourse(courseName);
 
         if (course === undefined) {
             await interaction.reply({ content: `Sorry, there was a problem finding the given course. It probably didn't exist in the database.\nPlease inform the developers about this problem.`, ephemeral: true });
             return;
         }
 
-        course._students.push(interaction.user.id);
-        guild.updateCourse(course);
-        await guild.save();
+        course.students.push(interaction.user.id);
+        GUILD.updateCourse(course);
+        await GUILD.save();
 
-        await interaction.reply({ content: `You have been enrolled into '${course._name}'!`, ephemeral: true });
+        await interaction.reply({ content: `You have been enrolled into '${course.name}'!`, ephemeral: true });
     })
 
 export default command;
