@@ -1,4 +1,4 @@
-import { CacheType, Interaction } from "discord.js";
+import { CacheType, CommandInteraction, Interaction } from "discord.js";
 
 import BOT_COMMANDS from "../commands.js";
 
@@ -7,7 +7,7 @@ export default {
     name: 'interactionCreate',
     async execute(interaction: Interaction<CacheType>) {
         // TODO: Add Error Response
-        if (!interaction.isCommand()) return;
+        if (!(interaction.isCommand() || interaction.isAutocomplete())) return;
 
         const command = BOT_COMMANDS.get(interaction.commandName);
 
@@ -16,12 +16,12 @@ export default {
 
 
         try {
-            await command.execute(interaction);
+            await command.execute(interaction as CommandInteraction);
         } catch (error) {
             // TODO: Add Error Response
             console.error(error);
 
-            await interaction.reply({ content: `There was an error while executing this command!`, ephemeral: true });
+            await (interaction as CommandInteraction).reply({ content: `There was an error while executing this command!`, ephemeral: true });
         }
     }
 }
