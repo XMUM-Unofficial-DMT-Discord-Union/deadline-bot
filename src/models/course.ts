@@ -12,21 +12,21 @@ export type Deadline = {
 }
 
 export class Course {
-    _name: string;
-    _deadlines: Array<Deadline>;
-    _students: Array<StudentId>;
+    name: string;
+    deadlines: Array<Deadline>;
+    students: Array<StudentId>;
 
     constructor(name: string, deadlines: Array<Deadline> = [], students: Array<StudentId> = []) {
-        this._name = name;
-        this._deadlines = deadlines;
-        this._students = students;
+        this.name = name;
+        this.deadlines = deadlines;
+        this.students = students;
     }
 
     members() {
         return {
-            _name: this._name,
-            _deadlines: this._deadlines,
-            _students: this._students,
+            name: this.name,
+            deadlines: this.deadlines,
+            students: this.students,
         }
     }
 
@@ -40,8 +40,8 @@ export class Course {
             },
             toFirestore: (course: Course) => {
                 return {
-                    deadlines: course._deadlines,
-                    students: course._students
+                    deadlines: course.deadlines,
+                    students: course.students
                 };
             }
         }
