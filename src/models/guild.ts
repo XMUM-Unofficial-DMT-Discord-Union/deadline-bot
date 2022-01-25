@@ -102,6 +102,27 @@ export class Guild {
         });
     }
 
+    /**
+     * Adds a delete course job to this Guild
+     * @param courseName The course name to be deleted
+     * @returns true if found a matching course to delete, false otherwise
+     */
+    deleteCourse(courseName: string) {
+        if (!(courseName in this._courses))
+            return false;
+
+        this.startWriteBatch();
+
+        this._writeBatch.delete(doc(this._coursesCollection, courseName));
+
+        // Add a pending delete to callbacks as well
+        this._writeCallbacks.push(() => {
+            delete this._courses[courseName];
+        })
+
+        return true;
+    }
+
     updateCourse(course: Course) {
         this.addCourse(course);
     }
