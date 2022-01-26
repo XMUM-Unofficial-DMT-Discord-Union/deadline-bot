@@ -57,6 +57,11 @@ export class Guild {
         }
     };
 
+    _students: {
+        verified: Array<Student>,
+        unverified: Array<Student>
+    }
+
     _suggestions: {
         [index: string]: Suggestion
     };
@@ -106,6 +111,8 @@ export class Guild {
         this._courses = {};
 
         this._roles = {};
+
+        this._students = { unverified: [], verified: [] };
 
         this._suggestions = {};
         this._reports = {};
@@ -203,6 +210,56 @@ export class Guild {
     }
 
     //addCourseDeadline(courseName: string, )
+
+    getAllStudents() {
+        return this._students;
+    }
+
+    getStudent(discordId: string) {
+        for (let students of Object.values(this._students)) {
+            for (let student of students) {
+                if (student._discordId === discordId)
+                    return student;
+            }
+        }
+
+        return undefined;
+    }
+
+    addUnverifiedStudent(student: Student) {
+        this.startWriteBatch();
+
+        this._writeBatch.set(doc(this._studentsCollection, student._discordId), student);
+
+        // Also add pending write to this instance
+        this._writeCallbacks.push(() => {
+            this._students.unverified.push(student);
+        })
+    }
+
+    /**
+     * Verifies a student of this Guild
+     * @param student The associated Student object
+     * @returns true if found a matching student to verify, false otherwise
+     */
+    verifyStudent(student: Student) {
+        if (this._students.unverified.find(unverified => unverified._discordId === student._discordId) === undefined)
+            return false;
+
+        student.setVerified();
+
+        this.startWriteBatch();
+
+        this._writeBatch.set(doc(this._studentsCollection, student._discordId), student);
+
+        // Also add pending write to this instance
+        this._writeCallbacks.push(((student: Student) => {
+            this._students.unverified = this._students.unverified.filter(unverified => unverified._discordId !== student._discordId);
+            this._students.verified.push(student);
+        }).bind(this, student));
+
+        return true;
+    }
 
     getAllSuggestions() {
         return this._suggestions;
@@ -330,6 +387,18 @@ export class Guild {
         coursesResult.forEach(snapshot => {
             this._courses[snapshot.data().name] = snapshot.data();
         });
+
+        this._students = (await getDocs(this._studentsCollection)).docs.reduce(
+            (result, document) => {
+                if (document.data()._verified)
+                    result.verified.push(document.data());
+                else
+                    result.unverified.push(document.data());
+
+                return result;
+            }
+            , { unverified: [], verified: [] } as typeof this._students
+        )
 
         this._suggestions = (await getDocs(this._suggestionsCollection)).docs.reduce(
             (result, document) => {
