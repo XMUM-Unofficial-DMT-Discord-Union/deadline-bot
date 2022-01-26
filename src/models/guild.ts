@@ -162,6 +162,21 @@ export class Guild {
         this._writeCallbacks.push(() => { this._roles['mod'].id = id });
     }
 
+    getVerifiedRoleDetails() {
+        return this._roles['verified'];
+    }
+
+    updateVerifiedRoleId(id: string) {
+        this.startWriteBatch();
+
+        this._writeBatch.set(doc(this._rolesCollection, 'verified'), {
+            id: id
+        }, { merge: true, mergeFields: ['id'] });
+
+        // Append a pending write to this instance as well
+        this._writeCallbacks.push(() => { this._roles['verified'].id = id });
+    }
+
     getAllCourses() {
         return this._courses;
     }
