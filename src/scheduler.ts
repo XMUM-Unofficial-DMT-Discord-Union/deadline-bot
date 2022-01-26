@@ -192,3 +192,12 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
         }
     });
 }
+
+export function cancelDeadline(courseName: string, deadlineName: string, studentId: string = '', system: boolean = true) {
+    let jobStrings = [`${courseName}: ${deadlineName}`];
+
+    jobStrings.push(jobStrings[0] + ` - User-Defined Reminder of ${studentId}`);
+    jobStrings.push(jobStrings[0] + ` - System Reminder to ${studentId}`);
+
+    jobStrings.forEach(job => scheduler.cancelJob(job));
+}
