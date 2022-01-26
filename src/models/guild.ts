@@ -125,13 +125,14 @@ export class Guild {
      * @returns false if this guild has not been initialize into database before, true otherwise
      */
     exists() {
-        // By definition, a Guild should have admin and mod documents predefined.
-        if (!('admin' in this._roles) || this._roles.admin.id === '' || !('mod' in this._roles) || this._roles.mod.id === '')
+        // By definition, a Guild should have admin, mod and verified documents predefined.
+        if (!('admin' in this._roles) || this._roles.admin.id === '' ||
+            !('mod' in this._roles) || this._roles.mod.id === '' ||
+            !('verified' in this._roles) || this._roles.verified.id === '')
             return false;
 
         return true;
     }
-
     getAdminRoleDetails() {
         return this._roles['admin'];
     }
