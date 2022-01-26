@@ -40,6 +40,6 @@ export type Event = {
 export enum Permissions {
     ADMIN = 'admin',
     MOD = 'mod',
-    EVERYONE = 'everyone',
+    VERIFIED = 'everyone',
     NOTVERIFIED = 'notverified'
 }

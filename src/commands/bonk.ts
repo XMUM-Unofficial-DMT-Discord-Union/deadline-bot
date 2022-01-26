@@ -1,7 +1,7 @@
 import { Permissions } from "../types.js";
 import { createCommand } from "../utilities.js";
 
-const command = createCommand('bonk', 'BONK someone!', Permissions.EVERYONE, (_) => _, async (interaction) => {
+const command = createCommand('bonk', 'BONK someone!', Permissions.VERIFIED, (_) => _, async (interaction) => {
     await interaction.reply({
         files: [
             {
