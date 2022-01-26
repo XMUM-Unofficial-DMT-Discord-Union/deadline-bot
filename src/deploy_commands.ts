@@ -104,44 +104,50 @@ const verifiedId = GUILD.getVerifiedRoleDetails().id;
 for (let command of BOT_COMMANDS.entries()) {
     const object = (commands as RESTPutAPIApplicationGuildCommandsResult).find(value => value.name === command[0]);
 
-    // Ensure this is not everyone can access
-    if (command[1].permission !== undefined && command[1].permission !== Permissions.EVERYONE) {
-        permissions.push({
-            id: object?.id,
-            permissions: []
+    permissions.push({
+        id: object?.id,
+        permissions: []
+    });
+
+    // If the command permits only Admin members - Only Admin can access
+    if (command[1].permission === Permissions.ADMIN) {
+        permissions[permissions.length - 1].permissions.push({
+            id: adminId,
+            type: ApplicationCommandPermissionType.Role,
+            permission: true
         });
+    }
 
-        // If the command permits only Admin members - Only Admin can access
-        if (command[1].permission === Permissions.ADMIN) {
-            permissions[permissions.length - 1].permissions.push({
-                id: adminId,
-                type: ApplicationCommandPermissionType.Role,
-                permission: true
-            });
-        }
+    // if the command permits mod members - Admin and Mod can access
+    else if (command[1].permission === Permissions.MOD) {
+        permissions[permissions.length - 1].permissions.push({
+            id: adminId,
+            type: ApplicationCommandPermissionType.Role,
+            permission: true
+        });
+        permissions[permissions.length - 1].permissions.push({
+            id: modId,
+            type: ApplicationCommandPermissionType.Role,
+            permission: true
+        });
+    }
 
-        // if the command permits mod members - Admin and Mod can access
-        else if (command[1].permission === Permissions.MOD) {
-            permissions[permissions.length - 1].permissions.push({
-                id: adminId,
-                type: ApplicationCommandPermissionType.Role,
-                permission: true
-            });
-            permissions[permissions.length - 1].permissions.push({
-                id: modId,
-                type: ApplicationCommandPermissionType.Role,
-                permission: true
-            });
-        }
+    // if the command permits only non-verified members - Only unverified members can access
+    else if (command[1].permission === Permissions.NOTVERIFIED) {
+        permissions[permissions.length - 1].permissions.push({
+            id: verifiedId,
+            type: ApplicationCommandPermissionType.Role,
+            permission: false
+        })
+    }
 
-        // if the command permits only non-verified members - Only unverified members can access
-        else if (command[1].permission === Permissions.NOTVERIFIED) {
-            permissions[permissions.length - 1].permissions.push({
-                id: verifiedId,
-                type: ApplicationCommandPermissionType.Role,
-                permission: false
-            })
-        }
+    // Otherwise, open the command for everyone that's verified
+    else {
+        permissions[permissions.length - 1].permissions.push({
+            id: verifiedId,
+            type: ApplicationCommandPermissionType.Role,
+            permission: true
+        })
     }
 }
 

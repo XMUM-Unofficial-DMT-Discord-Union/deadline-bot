@@ -10,17 +10,10 @@ for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPat
 
     const command = (await commandPromise).default;
 
-    switch (command.permission) {
-        case Permissions.ADMIN:
-        case Permissions.MOD:
-            // Only Mods or Admins can access these
-            command.data.setDefaultPermission(false);
-            break;
-        default:
-            // Only Mods or Admins can access these
-            command.data.setDefaultPermission(true);
-            break;
-    }
+    if (command.permission === Permissions.NOTVERIFIED)
+        command.data.setDefaultPermission(true);
+    else
+        command.data.setDefaultPermission(false);
 
     BOT_COMMANDS.set(command.data.name, command);
 }
