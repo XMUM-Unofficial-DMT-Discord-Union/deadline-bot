@@ -11,13 +11,14 @@ for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPat
     const command = (await commandPromise).default;
 
     switch (command.permission) {
-        case undefined || Permissions.EVERYONE || Permissions.NOTVERIFIED:
-            // Everyone has access to these permissions
-            command.data.setDefaultPermission(true);
+        case Permissions.ADMIN:
+        case Permissions.MOD:
+            // Only Mods or Admins can access these
+            command.data.setDefaultPermission(false);
             break;
         default:
             // Only Mods or Admins can access these
-            command.data.setDefaultPermission(false);
+            command.data.setDefaultPermission(true);
             break;
     }
 
