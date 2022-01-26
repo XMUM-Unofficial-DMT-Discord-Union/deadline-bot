@@ -253,6 +253,17 @@ export class Guild {
         })
     }
 
+    removeUnverifiedStudent(student: Student) {
+        this.startWriteBatch();
+
+        this._writeBatch.delete(doc(this._studentsCollection, student._discordId));
+
+        // Also add epnding delete to this instance
+        this._writeCallbacks.push(() => {
+            this._students.unverified = this._students.unverified.filter(unverified => unverified._discordId !== student._discordId);
+        })
+    }
+
     /**
      * Verifies a student of this Guild
      * @param student The associated Student object
