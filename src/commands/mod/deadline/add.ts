@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import { AutocompleteInteraction, Message, MessageActionRow, MessageEmbed, MessageSelectMenu } from 'discord.js';
+import { AutocompleteInteraction } from 'discord.js';
 import { Course } from '../../../models/course.js';
 import { Student } from '../../../models/student.js';
 import { scheduleDeadline, scheduleReminders } from '../../../scheduler.js';
@@ -56,12 +56,15 @@ const command = createSubCommand('add', 'Adds a deadline',
         course.deadlines.push(deadline);
 
         scheduleDeadline(interaction.client, course.name, deadline);
-        scheduleReminders(interaction.client, course.name, deadline, await Student.get(interaction.user.id) as Student);
 
         GUILD.updateCourse(course);
         await GUILD.save();
 
         await interaction.reply({ content: `New deadline created!`, ephemeral: true });
+
+        for (let student in course.students) {
+            scheduleReminders(interaction.client, course.name, deadline, GUILD.getStudent(student) as Student);
+        }
     });
 
 export default command;
