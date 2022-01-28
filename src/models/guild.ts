@@ -41,7 +41,7 @@ type DevApplication = {
     type: 'dev'
 };
 
-type Application = {
+export type Application = {
     discordId: string,
     name: string,
     reason: string
