@@ -1,7 +1,9 @@
 import Big from 'big.js';
+import { Client } from 'discord.js';
 import { collection, CollectionReference, doc, DocumentData, DocumentReference, FirestoreDataConverter, getDoc, getDocs, QueryDocumentSnapshot, writeBatch, WriteBatch } from 'firebase/firestore';
 
 import { firestoreApp } from '../database.js';
+import { cancelDeadline, scheduleReminders } from '../scheduler.js';
 import { Course } from './course.js';
 import { Student } from './student.js';
 
@@ -221,6 +223,45 @@ export class Guild {
         return true;
     }
 
+    removeStudentFromCourse(courseName: string, studentId: string) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+        course.students = course.students.filter(id => id !== studentId);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            this._courses[courseName].deadlines.forEach(deadline =>
+                cancelDeadline(courseName, deadline.name, studentId));
+        })
+
+        return true;
+    }
+
+    addStudentToCourse(courseName: string, discordId: string, client: Client) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const student = this.getStudent(discordId);
+
+        if (student === undefined)
+            return false;
+
+        const course = this._courses[courseName];
+        course.students.push(student._id);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            this._courses[courseName].deadlines.forEach(deadline =>
+                scheduleReminders(client, courseName, deadline, student));
+        })
+
+        return true;
+    }
+
     updateCourse(course: Course) {
         this.addCourse(course);
     }
@@ -250,6 +291,17 @@ export class Guild {
         // Also add pending write to this instance
         this._writeCallbacks.push(() => {
             this._students.unverified.push(student);
+        })
+    }
+
+    removeUnverifiedStudent(student: Student) {
+        this.startWriteBatch();
+
+        this._writeBatch.delete(doc(this._studentsCollection, student._discordId));
+
+        // Also add epnding delete to this instance
+        this._writeCallbacks.push(() => {
+            this._students.unverified = this._students.unverified.filter(unverified => unverified._discordId !== student._discordId);
         })
     }
 
