@@ -303,7 +303,7 @@ export class Guild {
         return true;
     }
 
-    editDeadlineFromCourse(courseName: string, deadline: Deadline, client: Client) {
+    editDeadlineFromCourse(courseName: string, deadline: Deadline) {
         if (!(courseName in this._courses))
             return false;
 
@@ -315,10 +315,10 @@ export class Guild {
         this.updateCourse(course);
 
         this._writeCallbacks.push(() => {
-            rescheduleDeadline(client, courseName, deadline);
+            rescheduleDeadline(courseName, deadline);
 
             this.getAllStudentsFromCourse(courseName).forEach(student =>
-                rescheduleReminders(client, courseName, deadline, student))
+                rescheduleReminders(courseName, deadline, student))
         })
     }
 
