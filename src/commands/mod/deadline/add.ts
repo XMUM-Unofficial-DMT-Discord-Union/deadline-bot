@@ -1,62 +1,303 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import { AutocompleteInteraction } from 'discord.js';
-import { Course } from '../../../models/course.js';
+import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, MessageSelectMenu, TextBasedChannel } from 'discord.js';
+import { Course, Deadline } from '../../../models/course.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
+const ID_STATES: {
+    [discordId: string]: number
+} = {};
+
+type Response = {
+    name: string,
+    datetime: Date,
+    description: string,
+    url: string,
+    excluded: Array<string>
+}
+
+type CallbackReturn = [Response, boolean];
+
+const yesButton = new MessageButton()
+    .setCustomId('yes')
+    .setLabel('Yes')
+    .setStyle('PRIMARY')
+
+const noButton = new MessageButton()
+    .setCustomId('no')
+    .setLabel('no')
+    .setStyle('PRIMARY')
+
+const skipButton = new MessageButton()
+    .setCustomId('skip')
+    .setLabel('skip')
+    .setStyle('SECONDARY')
+
+const callbacks = [
+    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
+        if (message !== undefined) {
+            response.name = message.content;
+            await message.delete();
+        }
+
+        await interaction.editReply({
+            embeds: [{
+                title: 'Add Deadline',
+                description: `Please enter the deadline name.`
+            }]
+        });
+
+        return [response, true];
+    },
+    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
+        let hasMessage = message !== undefined;
+        if (hasMessage) {
+            response.name = message?.content as string;
+            await message?.delete();
+        }
+
+        await interaction.editReply({
+            embeds: [{
+                title: 'Add Deadline',
+                description: `Please enter the deadline date of this deadline.`,
+                color: hasMessage ? 'DEFAULT' : 'RED',
+                fields: [{
+                    name: 'Format',
+                    value: `\`DD/MM/YYYY, HH:mm:ss\``
+                }]
+            }]
+        });
+
+        return [response, true];
+    },
+    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
+        if (message !== undefined) {
+            dayjs.extend(customParseFormat);
+            const parsed = dayjs(message.content, 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true)
+            await message.delete();
+
+            if (!parsed.isValid() || parsed.isBefore(dayjs()))
+                return [response, false];
+
+            response.datetime = parsed.toDate();
+        }
+
+        await interaction.editReply({
+            embeds: [{
+                title: 'Add Deadline',
+                description: `Please enter the description of this deadline.`
+            }],
+            components: [new MessageActionRow()
+                .addComponents(skipButton)]
+        });
+
+        return [response, true];
+    },
+    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
+        if (message !== undefined) {
+            response.description = message.content;
+            await message.delete();
+        }
+
+        await interaction.editReply({
+            embeds: [{
+                title: 'Add Deadline',
+                description: `Please enter the url referring to this deadline on Moodle.`
+            }],
+            components: [new MessageActionRow()
+                .addComponents(skipButton)]
+        });
+
+        return [response, true];
+    },
+    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
+        if (message !== undefined) {
+            response.url = message.content;
+            await message.delete();
+        }
+
+        await interaction.editReply({
+            embeds: [{
+                title: 'Is this correct? (Respond with yes/no)',
+                fields: [
+                    {
+                        name: 'Name',
+                        value: response.name || '\`None\`'
+                    },
+                    {
+                        name: 'Time',
+                        value: response.datetime.toLocaleString()
+                    },
+                    {
+                        name: 'Description',
+                        value: response.description || '\`None\`'
+                    },
+                    {
+                        name: 'url',
+                        value: response.url || '\`None\`'
+                    }
+                ]
+            }],
+            components: [new MessageActionRow()
+                .addComponents([yesButton, noButton])]
+        });
+
+        return [response, true];
+
+    }];
+
+function courseReplyOptions() {
+    return {
+        embeds: [{
+            title: 'Choose a course'
+        }],
+        components: [new MessageActionRow()
+            .addComponents((() => {
+                const menu = new MessageSelectMenu()
+                    .setCustomId('course')
+
+                if (Object.values(GUILD.getAllCourses()).length === 0)
+                    throw 'No courses.'
+
+                for (let course of Object.values(GUILD.getAllCourses())) {
+                    menu.addOptions({
+                        label: course.name,
+                        value: course.name
+                    })
+                }
+
+                return menu;
+            })())]
+    }
+}
+
+async function chooseCourseLifecycle(interaction: CommandInteraction) {
+    const response: any = {};
+
+    try {
+        const fields = courseReplyOptions();
+    }
+    catch (error) {
+        await interaction.reply({ content: `It seems like there aren't any courses...`, ephemeral: true });
+        return Promise.reject('No deadlines');
+    }
+    // If the above does not throw an error, there's deadlines available to delete
+
+    const reply = await interaction.reply({
+        ...courseReplyOptions(),
+        fetchReply: true, ephemeral: true
+    }) as Message;
+
+    const collector = reply.createMessageComponentCollector({
+        filter: component => component.user.id === interaction.user.id,
+        componentType: 'SELECT_MENU',
+        idle: 30000
+    })
+        .on('collect', async componentInteraction => {
+            response.course = GUILD.getCourse(componentInteraction.values[0]) as Course;
+
+            await componentInteraction.update({ components: [] })
+            collector.stop();
+        })
+        .on('end', async () => {
+            await addDeadlineLifecycle(interaction, reply, response.course);
+        })
+}
+
+async function addDeadlineLifecycle(interaction: CommandInteraction, message: Message, course: Course) {
+    ID_STATES[interaction.user.id] = 0;
+    let response = {
+        name: '',
+        datetime: new Date(),
+        description: '',
+        url: '',
+        excluded: Array<string>()
+    }
+    let isSuccess = true;
+
+    await interaction.editReply({
+        embeds: [{
+            title: 'Add Deadline',
+            description: `Please enter the deadline name.`
+        }]
+    });
+
+    ID_STATES[interaction.user.id]++;
+
+    const collector = new MessageCollector(interaction.channel as TextBasedChannel, {
+        filter: message => message.author.id === interaction.user.id,
+        idle: 30000
+    })
+        .on('collect', async message => {
+            [response, isSuccess] = await callbacks[ID_STATES[interaction.user.id]++](interaction, message, response);
+
+            if (!isSuccess) {
+                ID_STATES[interaction.user.id] -= 1;
+                await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
+            }
+        })
+
+    const componentCollector = message.createMessageComponentCollector({
+        componentType: 'BUTTON',
+        filter: interactor => interactor.user.id === interaction.user.id,
+        idle: 50000
+    })
+        .on('collect', async componentInteraction => {
+
+            if (componentInteraction.customId !== 'skip') {
+                // We're in the last comfirmation
+                if (componentInteraction.customId === 'no') {
+                    ID_STATES[interaction.user.id] = 0;
+
+                    await componentInteraction.update({
+                        components: []
+                    });
+                    [response, isSuccess] = await callbacks[ID_STATES[interaction.user.id]++](interaction, undefined, response);
+                }
+                else {
+                    componentCollector.stop();
+                    collector.stop();
+                    await componentInteraction.update({ components: [] });
+
+                    GUILD.addDeadlineToCourse(course.name, response, interaction.client);
+                    await GUILD.save();
+
+                    await interaction.editReply({
+                        embeds: [{
+                            title: 'Add Deadline ✅',
+                            color: 'GREEN'
+                        }]
+                    });
+                }
+
+                return;
+            }
+
+            await componentInteraction.update({});
+
+            [response, isSuccess] = await callbacks[ID_STATES[interaction.user.id]++](interaction, undefined, response);
+
+            if (!isSuccess) {
+                ID_STATES[interaction.user.id] -= 1;
+                await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
+            }
+        })
+        .on('stop', async () => {
+
+            const disabled = message.components[0].components;
+            disabled.forEach(component => component.setDisabled(true));
+            await interaction.editReply({
+                components: [new MessageActionRow()
+                    .setComponents(disabled)]
+            })
+        })
+}
+
 const command = createSubCommand('add', 'Adds a deadline',
-    builder => builder.addStringOption(option => option.setName('course')
-        .setDescription('The course to associate this deadline with')
-        .setRequired(true)
-        .setAutocomplete(true))
-        .addStringOption(option => option.setName('name')
-            .setDescription('The name of this deadline')
-            .setRequired(true))
-        .addStringOption(option => option.setName('datetime')
-            .setDescription('The deadline date time. In the form of DD/MM/YYYY, hh:mm:ss')
-            .setRequired(true))
-        .addStringOption(option => option.setName('description')
-            .setDescription('The description of this deadline'))
-        .addStringOption(option => option.setName('url')
-            .setDescription('The direct url referring to this deadline in Moodle.')),
+    builder => builder,
     async interaction => {
-        if (interaction.isAutocomplete()) {
-            await (interaction as AutocompleteInteraction).respond(
-                Object.keys(GUILD.getAllCourses()).map(courseName => {
-                    return { name: courseName, value: courseName };
-                }));
-            return;
-        }
-
-        const course = GUILD.getCourse(interaction.options.getString('course', true)) as Course;
-        const name = interaction.options.getString('name', true);
-
-        dayjs.extend(customParseFormat);
-        const datetime = dayjs(interaction.options.getString('datetime', true), 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true);
-        if (!datetime.isValid() || datetime.isBefore(dayjs())) {
-            await interaction.reply({ content: `Unfortunately, this date is either invalid or is in the past, please try again!`, ephemeral: true });
-            return;
-        }
-
-        const description = interaction.options.getString('description');
-        const url = interaction.options.getString('url');
-
-        // Now we can build the deadline
-        const deadline = {
-            name: name,
-            description: description === null ? '' : description,
-            datetime: datetime.toDate(),
-            url: url === null ? '' : url,
-            excluded: []
-        }
-
-        // TODO: Custom Embeds for each student
-        GUILD.addDeadlineToCourse(course.name, deadline, interaction.client);
-
-        await GUILD.save();
-
-        await interaction.reply({ content: `New deadline created!`, ephemeral: true });
+        await chooseCourseLifecycle(interaction);
     });
 
 export default command;
