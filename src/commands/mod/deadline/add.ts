@@ -53,19 +53,12 @@ const command = createSubCommand('add', 'Adds a deadline',
             excluded: []
         }
 
-        course.deadlines.push(deadline);
+        // TODO: Custom Embeds for each student
+        GUILD.addDeadlineToCourse(course.name, deadline, interaction.client);
 
-        scheduleDeadline(interaction.client, course.name, deadline);
-
-        GUILD.updateCourse(course);
         await GUILD.save();
 
         await interaction.reply({ content: `New deadline created!`, ephemeral: true });
-
-        for (let student in course.students) {
-            // TODO: Custom Embeds for each student
-            scheduleReminders(interaction.client, course.name, deadline, GUILD.getStudent(student) as Student);
-        }
     });
 
 export default command;

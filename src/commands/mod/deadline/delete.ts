@@ -72,9 +72,10 @@ const command = createSubCommand('delete', 'Deletes a deadline',
                     })
                 }
                 else if (componentInteraction.customId === 'choose_deadline') {
-                    response.course.deadlines = response.course.deadlines.filter((value: any) => value.name !== componentInteraction.values[0]);
+                    collector.stop();
 
-                    GUILD.updateCourse(response.course);
+                    GUILD.removeDeadlineFromCourse(response.course.name, componentInteraction.values[0]);
+
                     await GUILD.save();
 
                     await componentInteraction.update({
