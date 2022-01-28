@@ -42,7 +42,7 @@ type DevApplication = {
     type: 'dev'
 };
 
-type Application = {
+export type Application = {
     name: string,
     reason: string
 } & (AdminApplication | ModApplication | DevApplication)
