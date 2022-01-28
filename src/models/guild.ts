@@ -1,5 +1,6 @@
 import Big from 'big.js';
 import { Client } from 'discord.js';
+import dayjs from 'dayjs';
 import { collection, CollectionReference, doc, DocumentData, DocumentReference, FirestoreDataConverter, getDoc, getDocs, QueryDocumentSnapshot, writeBatch, WriteBatch } from 'firebase/firestore';
 
 import { firestoreApp } from '../database.js';
@@ -303,23 +304,27 @@ export class Guild {
         return true;
     }
 
-    editDeadlineFromCourse(courseName: string, deadline: Deadline) {
+    editDeadlineFromCourse(courseName: string, oldDeadline: Deadline, newDeadline: Deadline) {
         if (!(courseName in this._courses))
             return false;
 
         const course = this._courses[courseName];
 
-        course.deadlines = course.deadlines.filter(value => value.name !== deadline.name);
-        course.deadlines.push(deadline);
+        let index = course.deadlines.findIndex(value => value.name === oldDeadline.name);
+
+        if (!dayjs(course.deadlines[index].datetime).isSame(dayjs(newDeadline.datetime)))
+            // Only add pending reschedule if the date has changed
+            this._writeCallbacks.push(() => {
+                rescheduleDeadline(courseName, newDeadline);
+
+                this.getAllStudentsFromCourse(courseName).forEach(student =>
+                    rescheduleReminders(courseName, newDeadline, student))
+            })
+
+        course.deadlines = course.deadlines.filter((_, i) => i !== index);
+        course.deadlines.push(newDeadline);
 
         this.updateCourse(course);
-
-        this._writeCallbacks.push(() => {
-            rescheduleDeadline(courseName, deadline);
-
-            this.getAllStudentsFromCourse(courseName).forEach(student =>
-                rescheduleReminders(courseName, deadline, student))
-        })
     }
 
     updateCourse(course: Course) {

@@ -3,8 +3,6 @@ import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
 import { AutocompleteInteraction } from 'discord.js';
 import { Course } from '../../../models/course.js';
-import { Student } from '../../../models/student.js';
-import { scheduleDeadline, scheduleReminders } from '../../../scheduler.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
 const command = createSubCommand('add', 'Adds a deadline',

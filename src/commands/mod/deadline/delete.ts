@@ -1,4 +1,5 @@
 import { Message, MessageActionRow, MessageSelectMenu } from 'discord.js';
+
 import { Course } from '../../../models/course.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
@@ -8,22 +9,27 @@ function courseReplyOptions() {
             title: 'Choose a course'
         }],
         components: [new MessageActionRow()
-            .addComponents((() => {
+            .addComponents([(() => {
                 const menu = new MessageSelectMenu()
                     .setCustomId('course')
 
+                let hasValue = false;
                 for (let course of Object.values(GUILD.getAllCourses())) {
                     if (course.deadlines.length === 0)
                         continue;
 
+                    hasValue = true;
                     menu.addOptions({
                         label: course.name,
                         value: course.name
                     })
                 }
 
+                if (!hasValue)
+                    throw 'No deadlines.';
+
                 return menu;
-            })())]
+            })()])]
     }
 }
 
@@ -53,10 +59,21 @@ const command = createSubCommand('delete', 'Deletes a deadline',
     async interaction => {
         const response: any = {};
 
+
+        try {
+            const fields = courseReplyOptions();
+        }
+        catch (error) {
+            await interaction.reply({ content: `It seems like there aren't any deadlines...`, ephemeral: true });
+            return;
+        }
+        // If the above does not throw an error, there's deadlines available to delete
+
         const reply = await interaction.reply({
             ...courseReplyOptions(),
             fetchReply: true, ephemeral: true
         }) as Message;
+
 
         const collector = reply.createMessageComponentCollector({
             filter: component => component.user.id === interaction.user.id,
