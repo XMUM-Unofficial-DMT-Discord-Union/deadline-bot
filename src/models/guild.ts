@@ -42,6 +42,7 @@ type DevApplication = {
 };
 
 type Application = {
+    discordId: string,
     name: string,
     reason: string
 } & (AdminApplication | ModApplication | DevApplication)
