@@ -32,8 +32,11 @@ const command = createSubCommand('leave', 'Leave a course',
             return;
         }
 
-        course.students = course.students.filter(student => student !== interaction.user.id);
-        GUILD.updateCourse(course);
+        if (!GUILD.removeStudentFromCourse(courseName, GUILD.getStudent(interaction.user.id)?._id as string)) {
+            await interaction.reply({ content: `Sorry, there was a problem removing you from this course. Please try again later.`, ephemeral: true });
+            return;
+        }
+
         await GUILD.save();
 
         await interaction.reply({ content: `You have left '${course.name}'!`, ephemeral: true });

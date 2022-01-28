@@ -33,8 +33,11 @@ const command = createSubCommand('enroll', 'Enroll into a course',
             return;
         }
 
-        course.students.push(interaction.user.id);
-        GUILD.updateCourse(course);
+        if (!GUILD.addStudentToCourse(courseName, interaction.user.id, interaction.client)) {
+            await interaction.reply({ content: `Sorry, there was a problem adding you to this course. Please try again later.`, ephemeral: true });
+            return;
+        }
+
         await GUILD.save();
 
         await interaction.reply({ content: `You have been enrolled into '${course.name}'!`, ephemeral: true });
