@@ -193,11 +193,32 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
     });
 }
 
-export function cancelDeadline(courseName: string, deadlineName: string, studentId: string) {
+export function cancelDeadline(courseName: string, deadlineName: string) {
+    scheduler.cancelJob(`${courseName}: ${deadlineName}`);
+}
+
+export function cancelReminders(courseName: string, deadlineName: string, studentId: string) {
     let jobStrings = [`${courseName}: ${deadlineName}`];
 
     jobStrings.push(jobStrings[0] + ` - User-Defined Reminder of ${studentId}`);
     jobStrings.push(jobStrings[0] + ` - System Reminder to ${studentId}`);
+    jobStrings.pop();
 
     jobStrings.forEach(job => scheduler.cancelJob(job));
+}
+
+export function rescheduleDeadline(client: Client, courseName: string, deadline: Deadline) {
+    // This is the default deadline
+    return scheduler.rescheduleJob(`${courseName}: ${deadline.name}`, deadline.datetime);
+}
+
+export function rescheduleReminders(client: Client, courseName: string, deadline: Deadline, student: Student) {
+
+    const studentReminderTime = new Date(deadline.datetime.valueOf() - student._remindTime);
+    scheduler.rescheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime);
+
+    // System Reminder
+    const systemReminderTime = deadline.datetime;
+    systemReminderTime.setHours(deadline.datetime.getHours() - 1);
+    scheduler.rescheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime);
 }

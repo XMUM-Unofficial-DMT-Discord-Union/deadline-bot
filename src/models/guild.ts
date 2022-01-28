@@ -3,8 +3,8 @@ import { Client } from 'discord.js';
 import { collection, CollectionReference, doc, DocumentData, DocumentReference, FirestoreDataConverter, getDoc, getDocs, QueryDocumentSnapshot, writeBatch, WriteBatch } from 'firebase/firestore';
 
 import { firestoreApp } from '../database.js';
-import { cancelDeadline, scheduleReminders } from '../scheduler.js';
-import { Course } from './course.js';
+import { cancelDeadline, cancelReminders, rescheduleDeadline, rescheduleReminders, scheduleDeadline, scheduleReminders } from '../scheduler.js';
+import { Course, Deadline } from './course.js';
 import { Student } from './student.js';
 
 type WriteCallback = () => void;
@@ -234,7 +234,7 @@ export class Guild {
 
         this._writeCallbacks.push(() => {
             this._courses[courseName].deadlines.forEach(deadline =>
-                cancelDeadline(courseName, deadline.name, studentId));
+                cancelReminders(courseName, deadline.name, studentId));
         })
 
         return true;
@@ -262,6 +262,66 @@ export class Guild {
         return true;
     }
 
+    removeDeadlineFromCourse(courseName: string, deadlineName: string) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+
+        course.deadlines = course.deadlines.filter(value => value.name !== deadlineName);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            cancelDeadline(courseName, deadlineName);
+            this._courses[courseName].students.forEach(id =>
+                cancelReminders(courseName, deadlineName, id)
+            )
+        })
+
+        return true;
+    }
+
+    addDeadlineToCourse(courseName: string, deadline: Deadline, client: Client) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+
+        course.deadlines.push(deadline);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            scheduleDeadline(client, courseName, deadline);
+
+            this.getAllStudentsFromCourse(courseName).forEach(student =>
+                scheduleReminders(client, courseName, deadline, student)
+            )
+        })
+
+        return true;
+    }
+
+    editDeadlineFromCourse(courseName: string, deadline: Deadline, client: Client) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+
+        course.deadlines = course.deadlines.filter(value => value.name !== deadline.name);
+        course.deadlines.push(deadline);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            rescheduleDeadline(client, courseName, deadline);
+
+            this.getAllStudentsFromCourse(courseName).forEach(student =>
+                rescheduleReminders(client, courseName, deadline, student))
+        })
+    }
+
     updateCourse(course: Course) {
         this.addCourse(course);
     }
@@ -270,6 +330,14 @@ export class Guild {
 
     getAllStudents() {
         return this._students;
+    }
+
+    getAllStudentsFromCourse(courseName: string) {
+        if (!(courseName in this._courses))
+            return [];
+
+        const course = this._courses[courseName];
+        return this._students.verified.filter(student => course.students.includes(student._id));
     }
 
     getStudent(discordId: string) {
