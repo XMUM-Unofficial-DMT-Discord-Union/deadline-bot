@@ -1,7 +1,9 @@
 import Big from 'big.js';
+import { Client } from 'discord.js';
 import { collection, CollectionReference, doc, DocumentData, DocumentReference, FirestoreDataConverter, getDoc, getDocs, QueryDocumentSnapshot, writeBatch, WriteBatch } from 'firebase/firestore';
 
 import { firestoreApp } from '../database.js';
+import { cancelDeadline, scheduleReminders } from '../scheduler.js';
 import { Course } from './course.js';
 import { Student } from './student.js';
 
@@ -216,6 +218,45 @@ export class Guild {
         // Add a pending delete to callbacks as well
         this._writeCallbacks.push(() => {
             delete this._courses[courseName];
+        })
+
+        return true;
+    }
+
+    removeStudentFromCourse(courseName: string, studentId: string) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+        course.students = course.students.filter(id => id !== studentId);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            this._courses[courseName].deadlines.forEach(deadline =>
+                cancelDeadline(courseName, deadline.name, studentId));
+        })
+
+        return true;
+    }
+
+    addStudentToCourse(courseName: string, discordId: string, client: Client) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const student = this.getStudent(discordId);
+
+        if (student === undefined)
+            return false;
+
+        const course = this._courses[courseName];
+        course.students.push(student._id);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            this._courses[courseName].deadlines.forEach(deadline =>
+                scheduleReminders(client, courseName, deadline, student));
         })
 
         return true;
