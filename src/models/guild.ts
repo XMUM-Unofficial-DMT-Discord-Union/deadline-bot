@@ -3,8 +3,8 @@ import { Client } from 'discord.js';
 import { collection, CollectionReference, doc, DocumentData, DocumentReference, FirestoreDataConverter, getDoc, getDocs, QueryDocumentSnapshot, writeBatch, WriteBatch } from 'firebase/firestore';
 
 import { firestoreApp } from '../database.js';
-import { cancelDeadline, scheduleReminders } from '../scheduler.js';
-import { Course } from './course.js';
+import { cancelDeadline, cancelReminders, rescheduleDeadline, rescheduleReminders, scheduleDeadline, scheduleReminders } from '../scheduler.js';
+import { Course, Deadline } from './course.js';
 import { Student } from './student.js';
 
 type WriteCallback = () => void;
@@ -31,13 +31,28 @@ type Report = {
     reason: string
 };
 
-type ModApplication = void;
-type DevApplication = void;
+type AdminApplication = {
+    type: 'admin'
+};
+type ModApplication = {
+    type: 'mod'
+};
+type DevApplication = {
+    type: 'dev'
+};
 
+type Application = {
+    discordId: string,
+    name: string,
+    reason: string
+} & (AdminApplication | ModApplication | DevApplication)
 
 export class Guild {
     _suggestionNextEntryId: Big;
     _reportNextEntryId: Big;
+    _applicationNextEntryId: {
+        [type: string]: Big
+    }
 
     _rootDocument: DocumentReference<DocumentData>;
     _rolesCollection: CollectionReference<DocumentData>;
@@ -45,6 +60,7 @@ export class Guild {
     _studentsCollection: CollectionReference<Student>;
     _suggestionsCollection: CollectionReference<Suggestion>;
     _reportsCollection: CollectionReference<Report>;
+    _applicationsCollection: CollectionReference<Application>;
 
     _courses: { [name: string]: Course };
 
@@ -72,12 +88,23 @@ export class Guild {
         [index: string]: Report
     };
 
+    _applications: {
+        [type: string]: {
+            [index: string]: Application
+        }
+    }
+
     _writeBatch: WriteBatch | undefined;
     _writeCallbacks: Array<WriteCallback>;
 
     constructor(id: string) {
         this._suggestionNextEntryId = new Big('0');
         this._reportNextEntryId = new Big('0');
+        this._applicationNextEntryId = {
+            admin: new Big('0'),
+            mod: new Big('0'),
+            dev: new Big('0')
+        }
 
         this._rootDocument = doc(firestoreApp, `guilds/${id}`);
         this._rolesCollection = collection(this._rootDocument, 'roles');
@@ -110,6 +137,11 @@ export class Guild {
             toFirestore: (report) => report
         })
 
+        this._applicationsCollection = collection(this._rootDocument, 'applications').withConverter({
+            fromFirestore: (snap) => snap.data() as Application,
+            toFirestore: (application) => application
+        })
+
         this._courses = {};
 
         this._roles = {};
@@ -118,6 +150,7 @@ export class Guild {
 
         this._suggestions = {};
         this._reports = {};
+        this._applications = { admin: {}, mod: {}, dev: {} };
 
         this._writeCallbacks = [];
     }
@@ -234,7 +267,7 @@ export class Guild {
 
         this._writeCallbacks.push(() => {
             this._courses[courseName].deadlines.forEach(deadline =>
-                cancelDeadline(courseName, deadline.name, studentId));
+                cancelReminders(courseName, deadline.name, studentId));
         })
 
         return true;
@@ -262,6 +295,66 @@ export class Guild {
         return true;
     }
 
+    removeDeadlineFromCourse(courseName: string, deadlineName: string) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+
+        course.deadlines = course.deadlines.filter(value => value.name !== deadlineName);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            cancelDeadline(courseName, deadlineName);
+            this._courses[courseName].students.forEach(id =>
+                cancelReminders(courseName, deadlineName, id)
+            )
+        })
+
+        return true;
+    }
+
+    addDeadlineToCourse(courseName: string, deadline: Deadline, client: Client) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+
+        course.deadlines.push(deadline);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            scheduleDeadline(client, courseName, deadline);
+
+            this.getAllStudentsFromCourse(courseName).forEach(student =>
+                scheduleReminders(client, courseName, deadline, student)
+            )
+        })
+
+        return true;
+    }
+
+    editDeadlineFromCourse(courseName: string, deadline: Deadline) {
+        if (!(courseName in this._courses))
+            return false;
+
+        const course = this._courses[courseName];
+
+        course.deadlines = course.deadlines.filter(value => value.name !== deadline.name);
+        course.deadlines.push(deadline);
+
+        this.updateCourse(course);
+
+        this._writeCallbacks.push(() => {
+            rescheduleDeadline(courseName, deadline);
+
+            this.getAllStudentsFromCourse(courseName).forEach(student =>
+                rescheduleReminders(courseName, deadline, student))
+        })
+    }
+
     updateCourse(course: Course) {
         this.addCourse(course);
     }
@@ -270,6 +363,14 @@ export class Guild {
 
     getAllStudents() {
         return this._students;
+    }
+
+    getAllStudentsFromCourse(courseName: string) {
+        if (!(courseName in this._courses))
+            return [];
+
+        const course = this._courses[courseName];
+        return this._students.verified.filter(student => course.students.includes(student._id));
     }
 
     getStudent(discordId: string) {
@@ -398,7 +499,7 @@ export class Guild {
         this._writeBatch.set(doc(this._reportsCollection, this._reportNextEntryId.toString()), report);
         this._writeBatch.set(this._rootDocument, { reportNextEntryId: this._reportNextEntryId.plus('1').toString() });
 
-        // Also add pending write to list of suggestions
+        // Also add pending write to list of reports 
         this._writeCallbacks.push(() => {
             this._reports[this._reportNextEntryId.toString()] = report;
 
@@ -413,10 +514,55 @@ export class Guild {
 
         this._writeBatch.delete(doc(this._suggestionsCollection, suggestionId));
 
-        // Also add pending delete to list of suggestions
+        // Also add pending delete to list of reports 
         this._writeCallbacks.push(() => {
             delete this._reports[suggestionId];
         });
+    }
+
+    getAllApplications() {
+        return this._applications;
+    }
+
+    getAdminApplications() {
+        return this._applications['admin'];
+    }
+
+    getModApplications() {
+        return this._applications['mod'];
+    }
+
+    getDevApplications() {
+        return this._applications['dev'];
+    }
+
+    addApplication(application: Application) {
+        this.startWriteBatch();
+
+        let response: any = {};
+
+        response[`${application.type}ApplicationNextEntryId`] = this._applicationNextEntryId[application.type].plus('1').toString();
+
+        this._writeBatch.set(doc(this._applicationsCollection, `${application.type}: ${this._applicationNextEntryId[application.type].toString()}`), application);
+        this._writeBatch.set(this._rootDocument, response);
+
+        // Also add pending write to list of applications 
+        this._writeCallbacks.push(() => {
+            this._applications[application.type][this._applicationNextEntryId[application.type].toString()] = application;
+        })
+
+        this._applicationNextEntryId[application.type] = this._applicationNextEntryId[application.type].plus('1');
+    }
+
+    deleteApplication(applicationType: string, applicationId: string) {
+        this.startWriteBatch();
+
+        this._writeBatch.delete(doc(this._applicationsCollection, `${applicationType}: ${applicationId}`));
+
+        // Also add pending delete to list of applications 
+        this._writeCallbacks.push(() => {
+            delete this._applications[applicationType][this._applicationNextEntryId[applicationType].toString()];
+        })
     }
 
     async save() {
@@ -478,6 +624,13 @@ export class Guild {
                 result[document.id] = document.data();
                 return result;
             }, {} as typeof this._reports);
+
+        this._applications = (await getDocs(this._applicationsCollection)).docs.reduce(
+            (result, document) => {
+                let ids = document.id.split(': ');
+                result[ids[0]][ids[1]] = document.data();
+                return result;
+            }, { admin: {}, mod: {}, dev: {} } as typeof this._applications);
     }
 
     /**
