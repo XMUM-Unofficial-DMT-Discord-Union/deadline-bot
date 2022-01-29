@@ -444,6 +444,14 @@ export class Guild {
         this._writeCallbacks.push(((student: Student) => {
 
             if (student.isVerified()) {
+                let index = this._students.verified.findIndex(verified => verified._discordId === student._discordId);
+
+                if (this._students.verified[index]._remindTime !== student._remindTime)
+                    for (let [courseName, course] of Object.entries(this.getAllCourses()))
+                        if (!course.students.includes(student._id))
+                            for (let deadline of course.deadlines)
+                                rescheduleReminders(courseName, deadline, student);
+
                 this._students.verified = this._students.verified.filter(verified => verified._discordId !== student._discordId);
                 this._students.verified.push(student);
             } else {
