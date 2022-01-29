@@ -430,6 +430,32 @@ export class Guild {
         return true;
     }
 
+    modifyStudent(student: Student) {
+        if (student.isVerified() && this._students.verified.find(verified => verified._discordId === student._discordId) === undefined)
+            return false;
+        if (!student.isVerified() && this._students.unverified.find(unverified => unverified._discordId === student._discordId) === undefined)
+            return false;
+
+        this.startWriteBatch();
+
+        this._writeBatch.set(doc(this._studentsCollection, student._discordId), student);
+
+        // Also add pending write to either verified or unverified
+        this._writeCallbacks.push(((student: Student) => {
+
+            if (student.isVerified()) {
+                this._students.verified = this._students.verified.filter(verified => verified._discordId !== student._discordId);
+                this._students.verified.push(student);
+            } else {
+                this._students.unverified = this._students.unverified.filter(unverified => unverified._discordId !== student._discordId);
+                this._students.unverified.push(student);
+            }
+
+        }).bind(this, student))
+
+        return true;
+    }
+
     getAllSuggestions() {
         return this._suggestions;
     }
