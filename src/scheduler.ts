@@ -1,10 +1,13 @@
 import { Client, TextChannel } from 'discord.js';
-import scheduler from 'node-schedule';
+import scheduler, { Job } from 'node-schedule';
 
 import { Deadline } from './models/course.js';
-import { Guild } from './models/guild.js';
 import { Student } from './models/student.js';
 import { GUILD } from './utilities.js';
+
+const JOBS: {
+    [jobName: string]: Job
+} = {};
 
 /**
  * Starts up node-schedule and scours into the database, reading any deadlines and initializes them as schedules
@@ -81,7 +84,7 @@ export async function initializeScheduler(client: Client) {
 
 export function scheduleDeadline(client: Client, courseName: string, deadline: Deadline) {
     // This is the default deadline
-    return scheduler.scheduleJob(`${courseName}: ${deadline.name}`, deadline.datetime, async () => {
+    let result = scheduler.scheduleJob(`${courseName}: ${deadline.name}`, deadline.datetime, async () => {
         // For in production, bot will auto send to "deadlines-and-alerts"
         if (process.env.ENVIRONMENT === 'production') {
             await client.channels.fetch('923137246914310154').then(async channel => {
@@ -126,12 +129,17 @@ export function scheduleDeadline(client: Client, courseName: string, deadline: D
             }
         }
     });
+
+    if (result !== null)
+        JOBS[result.name] = result;
+
+    return result;
 }
 
 export function scheduleReminders(client: Client, courseName: string, deadline: Deadline, student: Student) {
 
     const studentReminderTime = new Date(deadline.datetime.valueOf() - student._remindTime);
-    scheduler.scheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime, async () => {
+    let result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime, async () => {
 
         // Reminders are sent to user's DMs
         await client.users.fetch(student._id).then(async user => {
@@ -160,10 +168,12 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
         }
     });
 
+    JOBS[result.name] = result;
+
     // System Reminder
     const systemReminderTime = deadline.datetime;
     systemReminderTime.setHours(deadline.datetime.getHours() - 1);
-    scheduler.scheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime, async () => {
+    result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime, async () => {
 
         // Reminders are sent to user's DMs
         await client.users.fetch(student._discordId).then(async user => {
@@ -191,13 +201,52 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
             console.warn(`Warning: job named '${courseName}: ${deadline.name} - System Reminder to ${student._id}' cannot be cancelled.`);
         }
     });
+
+    JOBS[result.name] = result;
 }
 
-export function cancelDeadline(courseName: string, deadlineName: string, studentId: string) {
+export function cancelDeadline(courseName: string, deadlineName: string) {
+    let result = scheduler.cancelJob(JOBS[`${courseName}: ${deadlineName}`]);
+
+    if (result)
+        delete JOBS[`${courseName}: ${deadlineName}`];
+}
+
+export function cancelReminders(courseName: string, deadlineName: string, studentId: string) {
     let jobStrings = [`${courseName}: ${deadlineName}`];
 
     jobStrings.push(jobStrings[0] + ` - User-Defined Reminder of ${studentId}`);
     jobStrings.push(jobStrings[0] + ` - System Reminder to ${studentId}`);
+    jobStrings.pop();
 
-    jobStrings.forEach(job => scheduler.cancelJob(job));
+    jobStrings.forEach(job => {
+        let result = scheduler.cancelJob(JOBS[job])
+
+        if (result)
+            delete JOBS[job];
+    });
+}
+
+export function rescheduleDeadline(courseName: string, deadline: Deadline) {
+    let result = scheduler.rescheduleJob(JOBS[`${courseName}: ${deadline.name}`], deadline.datetime);
+
+    if (result !== null)
+        JOBS[result.name] = result;
+
+    return result;
+}
+
+export function rescheduleReminders(courseName: string, deadline: Deadline, student: Student) {
+
+    const studentReminderTime = new Date(deadline.datetime.valueOf() - student._remindTime);
+    let result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime);
+
+    JOBS[result.name] = result;
+
+    // System Reminder
+    const systemReminderTime = deadline.datetime;
+    systemReminderTime.setHours(deadline.datetime.getHours() - 1);
+    result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime);
+
+    JOBS[result.name] = result;
 }
