@@ -11,8 +11,17 @@ export class Student {
     _enrolledBatch: string;
     _remindTime: number;
     _verified: boolean;
+    _type: ('admin' | 'mod' | 'dev' | 'verified' | 'unverified')[]
 
-    constructor(name: string, discordName: string, id: string, discordId: string, enrolledBatch: string, remindTime: number = 604800000, verified: boolean = false) {
+    constructor(name: string,
+        discordName: string,
+        id: string,
+        discordId: string,
+        enrolledBatch: string,
+        remindTime: number = 604800000,
+        verified: boolean = false,
+        type: ('admin' | 'mod' | 'dev' | 'verified' | 'unverified')[] = verified ? ['verified'] : ['unverified']) {
+
         this._name = name;
         this._discordName = discordName;
         this._id = id;
@@ -20,6 +29,8 @@ export class Student {
         this._enrolledBatch = enrolledBatch;
         this._remindTime = remindTime;
         this._verified = verified;
+
+        this._type = type
     }
 
     setVerified() {
@@ -46,7 +57,8 @@ export class Student {
                     snapshot.id,
                     snapshot.data().enrolledBatch,
                     snapshot.data().remindTime === 0 ? defaultRemindTime : snapshot.data().remindTime,
-                    snapshot.data().verified);
+                    snapshot.data().verified,
+                    snapshot.data().type);
             },
             toFirestore: (student: Student) => {
                 return {
@@ -55,7 +67,8 @@ export class Student {
                     id: student._id,
                     enrolledBatch: student._enrolledBatch,
                     remindTime: student._remindTime,
-                    verified: student._verified
+                    verified: student._verified,
+                    type: student._type
                 };
             }
         }

@@ -444,6 +444,14 @@ export class Guild {
         this._writeCallbacks.push(((student: Student) => {
 
             if (student.isVerified()) {
+                let index = this._students.verified.findIndex(verified => verified._discordId === student._discordId);
+
+                if (this._students.verified[index]._remindTime !== student._remindTime)
+                    for (let [courseName, course] of Object.entries(this.getAllCourses()))
+                        if (!course.students.includes(student._id))
+                            for (let deadline of course.deadlines)
+                                rescheduleReminders(courseName, deadline, student);
+
                 this._students.verified = this._students.verified.filter(verified => verified._discordId !== student._discordId);
                 this._students.verified.push(student);
             } else {
@@ -452,6 +460,71 @@ export class Guild {
             }
 
         }).bind(this, student))
+
+        return true;
+    }
+
+    addRoleToStudent(type: 'admin' | 'mod' | 'dev' | 'verified', discordId: string) {
+        // First find the student
+        const student = this.getStudent(discordId);
+
+        if (student === undefined)
+            return false;
+
+        if (type === 'verified') {
+            if (!student._type.includes('unverified') || student._type.includes('verified'))
+                return false;
+
+            student._type = student._type.filter(inner => inner !== 'unverified');
+            student._type.push('verified');
+        }
+
+        if (type === 'admin') {
+            if (!student._type.includes('mod') || student._type.includes('admin'))
+                return false;
+
+            student._type = student._type.filter(inner => inner !== 'mod');
+            student._type.push('admin');
+        }
+
+        if (type === 'mod') {
+            if (student._type.includes('mod'))
+                return false;
+
+            student._type = student._type.filter(inner => inner !== 'admin');
+            student._type.push('mod');
+        }
+
+        if (type === 'dev') {
+            if (student._type.includes('dev'))
+                return false;
+
+            student._type.push(type);
+        }
+
+
+        this.modifyStudent(student);
+
+        return true;
+    }
+
+    removeRoleFromStudent(type: 'admin' | 'mod' | 'dev' | 'verified', discordId: string) {
+        // First find the student
+        const student = this.getStudent(discordId);
+
+        if (student === undefined)
+            return false;
+
+        if (!student._type.includes(type))
+            return false;
+
+        student._type = student._type.filter(inner => inner !== type);
+
+        if (type === 'verified')
+            // Put the student back into unverified state
+            student._type.push('unverified')
+
+        this.modifyStudent(student);
 
         return true;
     }
