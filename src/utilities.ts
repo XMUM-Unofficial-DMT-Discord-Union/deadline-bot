@@ -140,7 +140,7 @@ export function createSubCommand(name: string, description: string,
 
 export function unimplementedCommandCallback() {
     return async (interaction: CommandInteraction<CacheType>) => {
-        await interaction.reply({ content: `Unfortunately, this command hasn't been implemented yet. Come back later!`, ephemeral: true });
+        await interaction.reply({ content: `Unfortunately, this command hasn't been implemented yet. Come back on the next bot update!`, ephemeral: true });
     }
 }
 

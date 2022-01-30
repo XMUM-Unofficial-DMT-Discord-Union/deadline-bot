@@ -2,13 +2,13 @@ import { ApplicationCommandOptionChoice, AutocompleteInteraction } from 'discord
 import { createSubCommand, GUILD, unimplementedCommandCallback } from '../../utilities.js';
 
 /*
-const command = createSubCommand('mod', 'Report a mod',
+const command = createSubCommand('dev', 'Report a dev',
     builder => builder.addStringOption(option => option.setName('user')
-        .setDescription('The moderator to be reported')
+        .setDescription('The developer to be reported')
         .setRequired(true)
         .setAutocomplete(true))
         .addStringOption(option => option.setName('reason')
-            .setDescription('The reason of reporting this mod')
+            .setDescription('The reason of reporting this developer')
             .setRequired(true)),
     async interaction => {
         if (interaction.isAutocomplete()) {
@@ -18,7 +18,7 @@ const command = createSubCommand('mod', 'Report a mod',
 
             await (interaction as AutocompleteInteraction).respond(students.reduce(
                 (result, student) => {
-                    if (student._type.includes('mod'))
+                    if (student._type.includes('dev'))
                         result.push({ name: student._discordName, value: student._discordId });
 
                     return result;
@@ -29,7 +29,7 @@ const command = createSubCommand('mod', 'Report a mod',
         await interaction.deferReply({ ephemeral: true });
 
         GUILD.addReport({
-            type: 'mod',
+            type: 'dev',
             discordId: interaction.options.getString('user', true),
             datetime: new Date(),
             reason: interaction.options.getString('reason', true)
@@ -39,7 +39,7 @@ const command = createSubCommand('mod', 'Report a mod',
 
         await interaction.followUp({ content: 'Report sent!', ephemeral: true })
     });
-    */
+*/
 
 const command = createSubCommand('mod', 'Report a mod', _ => _, unimplementedCommandCallback());
 

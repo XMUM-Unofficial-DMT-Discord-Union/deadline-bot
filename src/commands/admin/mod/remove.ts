@@ -1,4 +1,5 @@
 import { GuildMember } from "discord.js";
+
 import { createSubCommand, GUILD } from "../../../utilities.js";
 
 const command = createSubCommand('remove', 'Removes a moderator',
@@ -14,6 +15,8 @@ const command = createSubCommand('remove', 'Removes a moderator',
                 await interaction.reply({ content: `${targetMember.displayName} was not a mod!`, ephemeral: true })
             else {
                 await targetMember.roles.remove(modId);
+                GUILD.removeRoleFromStudent('mod', interaction.user.id);
+                await GUILD.save();
 
                 await interaction.reply({ content: `${targetMember.displayName} has been removed from being a mod!`, ephemeral: true })
             }
