@@ -1,6 +1,7 @@
 import { ApplicationCommandOptionChoice, AutocompleteInteraction } from 'discord.js';
-import { createSubCommand, GUILD } from '../../utilities.js';
+import { createSubCommand, GUILD, unimplementedCommandCallback } from '../../utilities.js';
 
+/*
 const command = createSubCommand('admin', 'Report an admin',
     builder => builder.addStringOption(option => option.setName('user')
         .setDescription('The admin to be reported')
@@ -38,5 +39,8 @@ const command = createSubCommand('admin', 'Report an admin',
 
         await interaction.followUp({ content: 'Report sent!', ephemeral: true })
     });
+*/
+
+const command = createSubCommand('admin', 'Report an admin', _ => _, unimplementedCommandCallback());
 
 export default command;
