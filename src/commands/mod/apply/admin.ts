@@ -115,6 +115,7 @@ const callbacks = [
 async function questionsLifecycle(interaction: CommandInteraction) {
     ID_STATES[interaction.user.id] = 0;
     let response: Application = {
+        discordId: interaction.user.id,
         name: '',
         type: 'admin',
         reason: ''

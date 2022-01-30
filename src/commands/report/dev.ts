@@ -41,6 +41,6 @@ const command = createSubCommand('dev', 'Report a dev',
     });
 */
 
-const command = createSubCommand('mod', 'Report a mod', _ => _, unimplementedCommandCallback());
+const command = createSubCommand('dev', 'Report a developer', _ => _, unimplementedCommandCallback());
 
 export default command;
