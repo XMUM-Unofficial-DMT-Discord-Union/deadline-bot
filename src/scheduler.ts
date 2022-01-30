@@ -1,9 +1,13 @@
 import { Client, TextChannel } from 'discord.js';
-import scheduler from 'node-schedule';
+import scheduler, { Job } from 'node-schedule';
 
 import { Deadline } from './models/course.js';
-import { Guild } from './models/guild.js';
 import { Student } from './models/student.js';
+import { GUILD } from './utilities.js';
+
+const JOBS: {
+    [jobName: string]: Job
+} = {};
 
 /**
  * Starts up node-schedule and scours into the database, reading any deadlines and initializes them as schedules
@@ -11,43 +15,35 @@ import { Student } from './models/student.js';
 export async function initializeScheduler(client: Client) {
     console.log('\nInitializing scheduler...');
 
-    // Go to the corresponding Guild
-    const guild = await Guild.get(process.env.GUILD_ID as string);
-
     // Get all courses
-    const courses = await guild.getAllCourses();
+    const courses = GUILD.getAllCourses();
 
     console.log('Courses fetched');
 
-    let tobeRemovedDeadlines: { [index: number]: number[] } = {};
+    let toBeReplacedDeadlines: { [courseName: string]: number[] } = {};
 
-    for (let courseIndex = 0; courseIndex < courses.length; courseIndex++) {
-        let course = courses[courseIndex];
+    for (let course of Object.values(courses)) {
 
-        for (let index = 0; index < course._deadlines.length; index++) {
-            let deadline = course._deadlines[index];
+        for (let index = 0; index < course.deadlines.length; index++) {
+            let deadline = course.deadlines[index];
 
-            console.log(`On ${course._name}: ${deadline.name} with deadline of ${deadline.datetime}`);
+            console.log(`On ${course.name}: ${deadline.name} with deadline of ${deadline.datetime}`);
 
             // First we schedule the original deadline
-            let result = scheduleDeadline(client, course._name, deadline);
+            let result = scheduleDeadline(client, course.name, deadline);
 
             if (result === null) {
-                console.warn(`${course._name}: ${deadline.name}, Scheduling failed. This is due to the deadline is either in the past or invalid.`);
+                console.warn(`${course.name}: ${deadline.name}, Scheduling failed. This is due to the deadline is either in the past or invalid.`);
 
-                Object.defineProperty(tobeRemovedDeadlines, courseIndex, {
-                    value: [],
-                    writable: true,
-                    enumerable: true,
-                    configurable: false
-                })
+                if (!(course.name in toBeReplacedDeadlines))
+                    toBeReplacedDeadlines[course.name] = [];
 
-                tobeRemovedDeadlines[courseIndex].push(index);
+                toBeReplacedDeadlines[course.name].push(index);
                 continue;
             }
 
             // In one course, there could be 0 to many students
-            for (let studentId of course._students) {
+            for (let studentId of course.students) {
 
                 // Check whether this student is present in the docs
                 const student = await Student.get(studentId);
@@ -56,25 +52,30 @@ export async function initializeScheduler(client: Client) {
                     continue;
 
                 // Check whether this student has already disabled deadline reminders
-                if (studentId in course._deadlines[index].excluded)
+                if (course.deadlines[index].excluded.includes(studentId))
                     continue;
 
                 // This student still has reminders on: create reminders
                 // Here we don't check for invalid reminders as it won't exist in database
-                scheduleReminders(client, course._name, deadline, student);
+                scheduleReminders(client, course.name, deadline, student);
             }
         }
     }
 
-    for (let courseIndex of Object.keys(tobeRemovedDeadlines)) {
-        let course = courses[Number(courseIndex)];
+    let hasInvalidDeadlines = false;
+    for (let [courseName, excludedDeadlineIndices] of Object.entries(toBeReplacedDeadlines)) {
+        hasInvalidDeadlines = true;
+        let course = courses[courseName];
 
         console.log('Removing invalid deadlines...');
         // Remove these deadlines
-        course._deadlines = course._deadlines.filter((_, index) => !(index in tobeRemovedDeadlines[Number(courseIndex)]));
+        course.deadlines = course.deadlines.filter((_, index) => !excludedDeadlineIndices.includes(index));
 
-        guild.updateCourse(course);
-        await guild.save();
+        GUILD.updateCourse(course);
+    }
+
+    if (hasInvalidDeadlines) {
+        await GUILD.save();
         console.log('Deadlines successfully removed!');
     }
 
@@ -83,7 +84,7 @@ export async function initializeScheduler(client: Client) {
 
 export function scheduleDeadline(client: Client, courseName: string, deadline: Deadline) {
     // This is the default deadline
-    return scheduler.scheduleJob(`${courseName}: ${deadline.name}`, deadline.datetime, async () => {
+    let result = scheduler.scheduleJob(`${courseName}: ${deadline.name}`, deadline.datetime, async () => {
         // For in production, bot will auto send to "deadlines-and-alerts"
         if (process.env.ENVIRONMENT === 'production') {
             await client.channels.fetch('923137246914310154').then(async channel => {
@@ -109,11 +110,8 @@ export function scheduleDeadline(client: Client, courseName: string, deadline: D
             console.warn(`Warning: job named '${courseName}: ${deadline.name}' cannot be cancelled.`);
         } else {
             // Safely remove the deadline off from firestore
-            // Get the corresponding Guild
-            const guild = await Guild.get(process.env.GUILD_ID as string);
-
-            // Now get the corresponding course
-            const course = await guild.getCourse(courseName);
+            // Get the corresponding course
+            const course = GUILD.getCourse(courseName);
 
             if (course === undefined) {
                 // For some reason, the given course does not exist in database
@@ -121,22 +119,27 @@ export function scheduleDeadline(client: Client, courseName: string, deadline: D
             }
             else {
                 // Filter out the deadline
-                course._deadlines = course._deadlines.filter(value => value.name !== deadline.name);
+                course.deadlines = course.deadlines.filter(value => value.name !== deadline.name);
 
                 // Write to guild
-                guild.updateCourse(course);
+                GUILD.updateCourse(course);
 
                 // Write to database
-                await guild.save();
+                await GUILD.save();
             }
         }
     });
+
+    if (result !== null)
+        JOBS[result.name] = result;
+
+    return result;
 }
 
 export function scheduleReminders(client: Client, courseName: string, deadline: Deadline, student: Student) {
 
     const studentReminderTime = new Date(deadline.datetime.valueOf() - student._remindTime);
-    scheduler.scheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime, async () => {
+    let result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime, async () => {
 
         // Reminders are sent to user's DMs
         await client.users.fetch(student._id).then(async user => {
@@ -165,10 +168,12 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
         }
     });
 
+    JOBS[result.name] = result;
+
     // System Reminder
     const systemReminderTime = deadline.datetime;
     systemReminderTime.setHours(deadline.datetime.getHours() - 1);
-    scheduler.scheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime, async () => {
+    result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime, async () => {
 
         // Reminders are sent to user's DMs
         await client.users.fetch(student._discordId).then(async user => {
@@ -196,4 +201,52 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
             console.warn(`Warning: job named '${courseName}: ${deadline.name} - System Reminder to ${student._id}' cannot be cancelled.`);
         }
     });
+
+    JOBS[result.name] = result;
+}
+
+export function cancelDeadline(courseName: string, deadlineName: string) {
+    let result = scheduler.cancelJob(JOBS[`${courseName}: ${deadlineName}`]);
+
+    if (result)
+        delete JOBS[`${courseName}: ${deadlineName}`];
+}
+
+export function cancelReminders(courseName: string, deadlineName: string, studentId: string) {
+    let jobStrings = [`${courseName}: ${deadlineName}`];
+
+    jobStrings.push(jobStrings[0] + ` - User-Defined Reminder of ${studentId}`);
+    jobStrings.push(jobStrings[0] + ` - System Reminder to ${studentId}`);
+    jobStrings.pop();
+
+    jobStrings.forEach(job => {
+        let result = scheduler.cancelJob(JOBS[job])
+
+        if (result)
+            delete JOBS[job];
+    });
+}
+
+export function rescheduleDeadline(courseName: string, deadline: Deadline) {
+    let result = scheduler.rescheduleJob(JOBS[`${courseName}: ${deadline.name}`], deadline.datetime);
+
+    if (result !== null)
+        JOBS[result.name] = result;
+
+    return result;
+}
+
+export function rescheduleReminders(courseName: string, deadline: Deadline, student: Student) {
+
+    const studentReminderTime = new Date(deadline.datetime.valueOf() - student._remindTime);
+    let result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime);
+
+    JOBS[result.name] = result;
+
+    // System Reminder
+    const systemReminderTime = deadline.datetime;
+    systemReminderTime.setHours(deadline.datetime.getHours() - 1);
+    result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime);
+
+    JOBS[result.name] = result;
 }

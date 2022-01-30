@@ -1,5 +1,4 @@
-import { Guild } from "../../models/guild.js";
-import { createSubCommand } from "../../utilities.js";
+import { createSubCommand, GUILD } from "../../utilities.js";
 
 const command = createSubCommand('rolename', 'Sets the rolename of Admin',
     (builder) => builder.addStringOption(option =>
@@ -9,9 +8,7 @@ const command = createSubCommand('rolename', 'Sets the rolename of Admin',
     async (interaction) => {
         const rolename = interaction.options.getString('name', true);
 
-        const guild = await Guild.get(process.env.GUILD_ID as string);
-
-        const id = (await guild.getAdminRoleDetails()).id;
+        const id = GUILD.getAdminRoleDetails().id;
 
         await interaction.guild?.roles.resolve(id)?.setName(rolename);
 

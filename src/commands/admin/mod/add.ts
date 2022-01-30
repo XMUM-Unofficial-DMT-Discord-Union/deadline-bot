@@ -1,7 +1,6 @@
 import { GuildMember } from "discord.js";
 
-import { Guild } from "../../../models/guild.js";
-import { createSubCommand } from "../../../utilities.js";
+import { createSubCommand, GUILD } from "../../../utilities.js";
 
 const command = createSubCommand('add', 'Adds a moderator',
     (builder) => builder.addUserOption(option => option.setName('target_user')
@@ -10,14 +9,12 @@ const command = createSubCommand('add', 'Adds a moderator',
     , async (interaction) => {
         const targetMember = interaction.options.getMember('target_user', true) as GuildMember;
 
-        // First get guild
-        const guild = await Guild.get(process.env.GUILD_ID as string);
-
-        const modId = (await guild.getModRoleDetails()).id;
-        const adminId = (await guild.getAdminRoleDetails()).id;
+        const modId = GUILD.getModRoleDetails().id;
+        const adminId = GUILD.getAdminRoleDetails().id;
+        const verifiedId = GUILD.getVerifiedRoleDetails().id;
 
         // If the member is not verified
-        if (targetMember.roles.resolve('922799498080690217') === null)
+        if (targetMember.roles.resolve(verifiedId) === null)
             await interaction.reply({ content: `${targetMember.displayName} is not verified!`, ephemeral: true })
         // If the member is already a mod
         else if (targetMember.roles.resolve(modId) !== null)
@@ -26,6 +23,9 @@ const command = createSubCommand('add', 'Adds a moderator',
             await interaction.reply({ content: `${targetMember.displayName} is a bot, bots aren't able to be mods!`, ephemeral: true })
         else {
             await targetMember.roles.add(modId);
+
+            GUILD.addRoleToStudent('mod', interaction.user.id);
+            await GUILD.save();
 
             // If the member was ranked higher than a mod
             if (targetMember.roles.resolve(adminId) !== null) {
