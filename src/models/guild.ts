@@ -24,12 +24,20 @@ type Suggestion = {
     reason: string
 } & (ChannelSuggestion | EventSuggestion);
 
+type AdminReport = {
+    type: 'admin'
+}
+type ModReport = {
+    type: 'mod'
+}
+type DevReport = {
+    type: 'dev'
+}
 type Report = {
-    type: 'mod',
     discordId: string,
     datetime: Date,
     reason: string
-};
+} & (AdminReport | ModReport | DevReport);
 
 type AdminApplication = {
     type: 'admin'
