@@ -464,6 +464,71 @@ export class Guild {
         return true;
     }
 
+    addRoleToStudent(type: 'admin' | 'mod' | 'dev' | 'verified', discordId: string) {
+        // First find the student
+        const student = this.getStudent(discordId);
+
+        if (student === undefined)
+            return false;
+
+        if (type === 'verified') {
+            if (!student._type.includes('unverified') || student._type.includes('verified'))
+                return false;
+
+            student._type = student._type.filter(inner => inner !== 'unverified');
+            student._type.push('verified');
+        }
+
+        if (type === 'admin') {
+            if (!student._type.includes('mod') || student._type.includes('admin'))
+                return false;
+
+            student._type = student._type.filter(inner => inner !== 'mod');
+            student._type.push('admin');
+        }
+
+        if (type === 'mod') {
+            if (student._type.includes('mod'))
+                return false;
+
+            student._type = student._type.filter(inner => inner !== 'admin');
+            student._type.push('mod');
+        }
+
+        if (type === 'dev') {
+            if (student._type.includes('dev'))
+                return false;
+
+            student._type.push(type);
+        }
+
+
+        this.modifyStudent(student);
+
+        return true;
+    }
+
+    removeRoleFromStudent(type: 'admin' | 'mod' | 'dev' | 'verified', discordId: string) {
+        // First find the student
+        const student = this.getStudent(discordId);
+
+        if (student === undefined)
+            return false;
+
+        if (!student._type.includes(type))
+            return false;
+
+        student._type = student._type.filter(inner => inner !== type);
+
+        if (type === 'verified')
+            // Put the student back into unverified state
+            student._type.push('unverified')
+
+        this.modifyStudent(student);
+
+        return true;
+    }
+
     getAllSuggestions() {
         return this._suggestions;
     }
