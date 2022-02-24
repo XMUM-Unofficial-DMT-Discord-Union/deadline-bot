@@ -308,13 +308,13 @@ async function editDeadlineLifecycle(interaction: CommandInteraction, message: M
                 return;
             }
 
-            if (id === 0)
+            if (id === 1)
                 response.name = deadline.name;
-            else if (id === 1)
-                response.datetime = deadline.datetime;
             else if (id === 2)
-                response.description = deadline.description;
+                response.datetime = deadline.datetime;
             else if (id === 3)
+                response.description = deadline.description;
+            else if (id === 4)
                 response.url = deadline.url;
 
             await componentInteraction.update({
