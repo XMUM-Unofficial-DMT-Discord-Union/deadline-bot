@@ -239,11 +239,11 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
 
 async function editDeadlineLifecycle(interaction: CommandInteraction, message: Message, course: Course, deadline: Deadline) {
     let id = 0;
-    let response = {
-        name: '',
-        datetime: new Date(),
-        description: '',
-        url: '',
+    let response: Response = {
+        name: deadline.name,
+        datetime: deadline.datetime,
+        description: deadline.description,
+        url: deadline.url,
         excluded: deadline.excluded
     }
     let isSuccess = true;
@@ -286,6 +286,7 @@ async function editDeadlineLifecycle(interaction: CommandInteraction, message: M
                         components: [new MessageActionRow()
                             .addComponents(skipButton)]
                     });
+
                     [response, isSuccess] = await callbacks[id++](interaction, undefined, response, deadline);
                 }
                 else {

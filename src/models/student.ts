@@ -2,6 +2,7 @@ import 'firebase/firestore';
 import { doc, FirestoreDataConverter, getDoc } from 'firebase/firestore';
 
 import { firestoreApp } from '../database.js';
+import { GUILD } from '../utilities.js';
 
 export class Student {
     _name: string;
@@ -42,7 +43,7 @@ export class Student {
     }
 
     static async get(id: string): Promise<Student | undefined> {
-        return (await getDoc(doc(firestoreApp, id).withConverter(Student.converter()))).data();
+        return (await getDoc(doc(firestoreApp, `guilds/${process.env.GUILD_ID as string}/students/${id}`).withConverter(Student.converter()))).data();
     }
 
     static converter(): FirestoreDataConverter<Student> {
