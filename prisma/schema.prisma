@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Guild {
+  /// The associated UUID retrieved from Discord
+  id       String    @id @unique
+  Role     Role[]
+  students Student[]
+}
+
+model Deadline {
+  id               Int       @id @default(autoincrement())
+  name             String
+  description      String?
+  url              String?
+  datetime         DateTime  @db.Timestamptz()
+  excludedStudents Student[]
+  course           Course    @relation(fields: [courseId], references: [id])
+  courseId         Int
+}
+
+model Course {
+  id       Int        @id @default(autoincrement())
+  name     String     @unique
+  Deadline Deadline[]
+  students Student[]
+}
+
+model Student {
+  discordId         String     @id @unique
+  id                String     @unique
+  name              String
+  enrolledBatch     String /// A 4-digit string representing the year and month of intake
+  remindTime        String     @default("1 Week") /// Use `ms` module to get miliseconds from human-readable duration format
+  deadlinesExcluded Deadline[]
+  courses           Course[]
+  roles             Role[]
+  guilds            Guild[]
+}
+
+model Role {
+  id       String    @id /// The corresponding 
+  type     RoleType
+  guild    Guild     @relation(fields: [guildId], references: [id])
+  guildId  String
+  students Student[]
+}
+
+/// Each subsequent role represents a higher command privilege
+enum RoleType {
+  UNVERIFIED
+  VERIFIED
+  MOD
+  ADMIN
+  DEV
+}
