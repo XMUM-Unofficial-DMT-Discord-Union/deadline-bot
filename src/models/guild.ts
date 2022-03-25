@@ -118,7 +118,9 @@ export class Guild {
     _writeBatch: WriteBatch | undefined;
     _writeCallbacks: Array<WriteCallback>;
 
-    constructor(id: string) {
+    static _instance: Guild | undefined;
+
+    constructor(id: string = '0') {
         this._suggestionNextEntryId = new Big('0');
         this._reportNextEntryId = new Big('0');
         this._applicationNextEntryId = {
@@ -175,19 +177,70 @@ export class Guild {
         this._writeCallbacks = [];
     }
 
+    static getInstance() {
+        if (this._instance === undefined)
+            this._instance = new Guild();
+
+        return this._instance;
+    }
+
     /**
      * 
      * @returns false if this guild has not been initialize into database before, true otherwise
      */
-    exists() {
-        // By definition, a Guild should have admin, mod and verified documents predefined.
-        if (!('admin' in this._roles) || this._roles.admin.id === '' ||
-            !('mod' in this._roles) || this._roles.mod.id === '' ||
-            !('verified' in this._roles) || this._roles.verified.id === '')
+    async guildExists(id: string) {
+        const guild = await prisma.guild.findUnique({
+            where: {
+                id: id
+            }
+        });
+
+        if (guild === null)
             return false;
 
         return true;
     }
+
+    async createGuild({ id, adminRoleId, modRoleId, verifiedRoleId, devRoleId }:
+        {
+            id: string;
+            adminRoleId: string;
+            modRoleId: string;
+            verifiedRoleId: string;
+            devRoleId: string;
+        }) {
+        return await prisma.guild.create({
+            data: {
+                id: id,
+                role: {
+                    create: [{
+                        type: 'ADMIN',
+                        id: adminRoleId
+                    }, {
+                        type: 'MOD',
+                        id: modRoleId
+                    }, {
+                        type: 'VERIFIED',
+                        id: verifiedRoleId
+                    }, {
+                        type: 'DEV',
+                        id: devRoleId
+                    }]
+                }
+            }
+        });
+    }
+
+    async createAdminRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'ADMIN',
+                id: roleId,
+                guildId: guildId
+            }
+        });
+    }
+
     async getAdminRole(guildId: string = process.env.GUILD_ID as string) {
         const adminRole = await prisma.role.findUnique({
             where: {
@@ -214,6 +267,16 @@ export class Guild {
             },
             data: {
                 id: id
+            }
+        });
+    }
+
+    async createModRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'MOD',
+                id: roleId,
+                guildId: guildId
             }
         });
     }
@@ -246,6 +309,16 @@ export class Guild {
         });
     }
 
+    async createVerifiedRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'VERIFIED',
+                id: roleId,
+                guildId: guildId
+            }
+        });
+    }
+
     async getVerifiedRole(guildId: string = process.env.GUILD_ID as string) {
         const verifiedRole = await prisma.role.findFirst({
             where: {
@@ -273,6 +346,45 @@ export class Guild {
             }
         });
     }
+
+    async createDevRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'DEV',
+                id: roleId,
+                guildId: guildId
+            }
+        });
+    }
+
+    async getDevRole(guildId: string = process.env.GUILD_ID as string) {
+        const verifiedRole = await prisma.role.findFirst({
+            where: {
+                guildId: guildId,
+                type: 'DEV'
+            }
+        });
+
+        if (verifiedRole === null)
+            throw 'Dev role is not registered to database.';
+
+        return verifiedRole;
+    }
+
+    async updateDevRoleId(role: Role, id: string) {
+        if (role.type !== 'DEV')
+            throw 'The given role is not a Dev role.';
+
+        await prisma.role.update({
+            where: {
+                id: role.id
+            },
+            data: {
+                id: id
+            }
+        });
+    }
+
     async getAllCourses() {
         return await prisma.course.findMany({
             include: {
@@ -462,9 +574,6 @@ export class Guild {
             },
             include: {
                 course: {
-                    select: {
-                        name: true
-                    },
                     include: {
                         students: true
                     }

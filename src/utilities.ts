@@ -145,7 +145,7 @@ export function unimplementedCommandCallback() {
     };
 }
 
-export const GUILD = await Guild.get(process.env.GUILD_ID as string);
+export const GUILD = await Guild.getInstance();
 
 export const prisma = (() => {
     const prisma = new Prisma.PrismaClient();

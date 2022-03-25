@@ -3,11 +3,8 @@ import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
 import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, MessageSelectMenu, TextBasedChannel } from 'discord.js';
+import { TypedEmitter } from 'tiny-typed-emitter';
 import { createSubCommand, GUILD } from '../../../utilities.js';
-
-const ID_STATES: {
-    [discordId: string]: number;
-} = {};
 
 type Response = {
     name: string,
@@ -205,7 +202,7 @@ async function chooseCourseLifecycle(interaction: CommandInteraction) {
 }
 
 async function addDeadlineLifecycle(interaction: CommandInteraction, message: Message, course: Course) {
-    ID_STATES[interaction.user.id] = 0;
+    let callbackIndex = 0;
     let response = {
         name: '',
         datetime: new Date(),
@@ -221,17 +218,17 @@ async function addDeadlineLifecycle(interaction: CommandInteraction, message: Me
         }]
     });
 
-    ID_STATES[interaction.user.id]++;
+    callbackIndex++;
 
     const collector = new MessageCollector(interaction.channel as TextBasedChannel, {
         filter: message => message.author.id === interaction.user.id,
         idle: 30000
     })
         .on('collect', async message => {
-            [response, isSuccess] = await callbacks[ID_STATES[interaction.user.id]++](interaction, message, response);
+            [response, isSuccess] = await callbacks[callbackIndex++](interaction, message, response);
 
             if (!isSuccess) {
-                ID_STATES[interaction.user.id] -= 1;
+                callbackIndex -= 1;
                 await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
             }
         });
@@ -246,12 +243,12 @@ async function addDeadlineLifecycle(interaction: CommandInteraction, message: Me
             if (componentInteraction.customId !== 'skip') {
                 // We're in the last comfirmation
                 if (componentInteraction.customId === 'no') {
-                    ID_STATES[interaction.user.id] = 0;
+                    callbackIndex = 0;
 
                     await componentInteraction.update({
                         components: []
                     });
-                    [response, isSuccess] = await callbacks[ID_STATES[interaction.user.id]++](interaction, undefined, response);
+                    [response, isSuccess] = await callbacks[callbackIndex++](interaction, undefined, response);
                 }
                 else {
                     componentCollector.stop();
@@ -273,10 +270,10 @@ async function addDeadlineLifecycle(interaction: CommandInteraction, message: Me
 
             await componentInteraction.update({});
 
-            [response, isSuccess] = await callbacks[ID_STATES[interaction.user.id]++](interaction, undefined, response);
+            [response, isSuccess] = await callbacks[callbackIndex++](interaction, undefined, response);
 
             if (!isSuccess) {
-                ID_STATES[interaction.user.id] -= 1;
+                callbackIndex -= 1;
                 await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
             }
         })
