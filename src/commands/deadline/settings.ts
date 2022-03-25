@@ -1,8 +1,7 @@
-import { CommandInteraction, Message, MessageEmbedOptions } from 'discord.js';
+import { MessageEmbedOptions } from 'discord.js';
 import ms, { StringValue } from 'ms';
-import { rescheduleReminders } from '../../scheduler.js';
 
-import { createSubCommand, GUILD } from '../../utilities.js';
+import { createSubCommand, prisma } from '../../utilities.js';
 
 function editReminderEmbed(newRemind: number): MessageEmbedOptions {
     return {
@@ -18,14 +17,18 @@ const command = createSubCommand('settings', 'Change how you want your deadlines
     builder => builder,
     async interaction => {
 
-        const student = GUILD.getStudent(interaction.user.id);
+        const student = await prisma.student.findUnique({
+            where: {
+                discordId: interaction.user.id
+            },
+        });
 
-        if (student === undefined) {
+        if (student === null) {
             await interaction.reply({ content: 'Hmm, you\'re not saved in database. Please notify the developer about this issue.', ephemeral: true });
             return;
         }
 
-        await interaction.reply({ embeds: [editReminderEmbed(student._remindTime)], ephemeral: true });
+        await interaction.reply({ embeds: [editReminderEmbed(ms(student.remindTime as StringValue))], ephemeral: true });
 
         const collector = interaction.channel?.createMessageCollector({
             filter: message => message.author.id === interaction.user.id,
@@ -33,15 +36,20 @@ const command = createSubCommand('settings', 'Change how you want your deadlines
         })
             .on('collect', async message => {
                 if (message.content.length > 100 || ms(message.content as StringValue) === NaN) {
-                    await interaction.followUp({ content: 'Invalid input, please try again.', ephemeral: true })
+                    await interaction.followUp({ content: 'Invalid input, please try again.', ephemeral: true });
                     return;
                 }
 
-                student._remindTime = ms(message.content as StringValue);
-                await message.delete();
-                GUILD.modifyStudent(student);
+                await prisma.student.update({
+                    where: {
+                        discordId: student.discordId
+                    },
+                    data: {
+                        remindTime: message.content as StringValue
+                    }
+                });
 
-                await GUILD.save();
+                await message.delete();
 
                 await interaction.editReply({
                     embeds: [{

@@ -1,21 +1,19 @@
 import 'firebase/firestore';
-import { doc, FirestoreDataConverter, getDoc } from 'firebase/firestore';
+import { FirestoreDataConverter } from 'firebase/firestore';
+import ms, { StringValue } from 'ms';
 
-import { firestoreApp } from '../database.js';
-import { GUILD } from '../utilities.js';
+import { prisma } from '../utilities.js';
 
 export class Student {
-    _name: string;
-    _discordName: string;
-    _id: string;
-    _discordId: string;
-    _enrolledBatch: string;
-    _remindTime: number;
-    _verified: boolean;
-    _type: ('admin' | 'mod' | 'dev' | 'verified' | 'unverified')[]
+    name: string;
+    id: string;
+    discordId: string;
+    enrolledBatch: string;
+    remindTime: number;
+    verified: boolean;
+    type: ('admin' | 'mod' | 'dev' | 'verified' | 'unverified')[];
 
     constructor(name: string,
-        discordName: string,
         id: string,
         discordId: string,
         enrolledBatch: string,
@@ -23,27 +21,83 @@ export class Student {
         verified: boolean = false,
         type: ('admin' | 'mod' | 'dev' | 'verified' | 'unverified')[] = verified ? ['verified'] : ['unverified']) {
 
-        this._name = name;
-        this._discordName = discordName;
-        this._id = id;
-        this._discordId = discordId;
-        this._enrolledBatch = enrolledBatch;
-        this._remindTime = remindTime;
-        this._verified = verified;
+        this.name = name;
+        this.id = id;
+        this.discordId = discordId;
+        this.enrolledBatch = enrolledBatch;
+        this.remindTime = remindTime;
+        this.verified = verified;
 
-        this._type = type
+        this.type = type;
     }
 
-    setVerified() {
-        this._verified = true;
+    async setVerified() {
+        this.verified = true;
+        await prisma.student.update({
+            where: {
+                discordId: this.id
+            },
+            include: {
+                studentsToRoles: true
+            },
+            data: {
+                studentsToRoles: {
+                    create: {
+                        role: {
+                            connect: {
+                                guildId_type: {
+                                    guildId: process.env.GUILD_ID as string,
+                                    type: 'VERIFIED'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     isVerified() {
-        return this._verified;
+        return this.verified;
     }
 
     static async get(id: string): Promise<Student | undefined> {
-        return (await getDoc(doc(firestoreApp, `guilds/${process.env.GUILD_ID as string}/students/${id}`).withConverter(Student.converter()))).data();
+        const student = await prisma.student.findUnique({
+            where: {
+                discordId: id
+            },
+        });
+
+        const roles = await prisma.studentsToRoles.findMany({
+            where: {
+                studentDiscordId: id
+            }
+        });
+
+        // Temporary adaptation to legacy code
+        if (student !== null)
+            return new Student(
+                student.name,
+                student.id,
+                student.discordId,
+                student.enrolledBatch,
+                ms(student.remindTime as StringValue),
+                roles.find(role => role.roleType === 'VERIFIED') !== undefined,
+                roles.map(role => {
+                    if (role.roleType === 'ADMIN')
+                        return "admin";
+                    else if (role.roleType === 'MOD')
+                        return "mod";
+                    else if (role.roleType === 'DEV')
+                        return "dev";
+                    else if (role.roleType === 'VERIFIED')
+                        return "verified";
+                    return "unverified";
+                })
+            );
+        return undefined;
+
+        //return (await getDoc(doc(firestoreApp, `guilds/${process.env.GUILD_ID as string}/students/${id}`).withConverter(Student.converter()))).data();
     }
 
     static converter(): FirestoreDataConverter<Student> {
@@ -53,7 +107,6 @@ export class Student {
                 const defaultRemindTime = 604800000;
                 return new Student(
                     snapshot.data().name,
-                    snapshot.data().discordName,
                     snapshot.data().id,
                     snapshot.id,
                     snapshot.data().enrolledBatch,
@@ -63,15 +116,14 @@ export class Student {
             },
             toFirestore: (student: Student) => {
                 return {
-                    name: student._name,
-                    discordName: student._discordName,
-                    id: student._id,
-                    enrolledBatch: student._enrolledBatch,
-                    remindTime: student._remindTime,
-                    verified: student._verified,
-                    type: student._type
+                    name: student.name,
+                    id: student.id,
+                    enrolledBatch: student.enrolledBatch,
+                    remindTime: student.remindTime,
+                    verified: student.verified,
+                    type: student.type
                 };
             }
-        }
+        };
     }
 }

@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
+import Prisma from '@prisma/client';
 import { CacheType, Collection, CommandInteraction } from 'discord.js';
 import 'firebase/firestore';
 
@@ -17,7 +18,7 @@ export function* directoryFiles<T>(filename: string, directory: string) {
     const files = fs.readdirSync(`${path.dirname(filename)}${path.sep}${directory}`).filter(file => file.endsWith(path.extname(filename)));
 
     for (const file of files) {
-        yield import(`${path.dirname(filename)}${path.sep}${directory}${path.sep}${file}`) as Promise<{ default: T }>;
+        yield import(`${path.dirname(filename)}${path.sep}${directory}${path.sep}${file}`) as Promise<{ default: T; }>;
     }
 }
 
@@ -141,7 +142,13 @@ export function createSubCommand(name: string, description: string,
 export function unimplementedCommandCallback() {
     return async (interaction: CommandInteraction<CacheType>) => {
         await interaction.reply({ content: `Unfortunately, this command hasn't been implemented yet. Come back on the next bot update!`, ephemeral: true });
-    }
+    };
 }
 
 export const GUILD = await Guild.get(process.env.GUILD_ID as string);
+
+export const prisma = (() => {
+    const prisma = new Prisma.PrismaClient();
+
+    return prisma;
+})();

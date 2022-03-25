@@ -10,7 +10,7 @@ datasource db {
 model Guild {
   /// The associated UUID retrieved from Discord
   id       String    @id @unique
-  Role     Role[]
+  role     Role[]
   students Student[]
 }
 
@@ -21,35 +21,47 @@ model Deadline {
   url              String?
   datetime         DateTime  @db.Timestamptz()
   excludedStudents Student[]
-  course           Course    @relation(fields: [courseId], references: [id])
+  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   courseId         Int
 }
 
 model Course {
   id       Int        @id @default(autoincrement())
   name     String     @unique
-  Deadline Deadline[]
+  deadline Deadline[]
   students Student[]
+}
+
+model studentsToRoles {
+  id               Int      @id @default(autoincrement())
+  studentDiscordId String
+  roleType         RoleType
+  guildId          String
+
+  student Student @relation(fields: [studentDiscordId], references: [discordId], onDelete: Cascade)
+  role    Role    @relation(fields: [guildId, roleType], references: [guildId, type], onDelete: Cascade)
 }
 
 model Student {
-  discordId         String     @id @unique
-  id                String     @unique
+  discordId         String            @id @unique
+  id                String            @unique
   name              String
   enrolledBatch     String /// A 4-digit string representing the year and month of intake
-  remindTime        String     @default("1 Week") /// Use `ms` module to get miliseconds from human-readable duration format
+  remindTime        String            @default("1 Week") /// Use `ms` module to get miliseconds from human-readable duration format
   deadlinesExcluded Deadline[]
   courses           Course[]
-  roles             Role[]
   guilds            Guild[]
+  studentsToRoles   studentsToRoles[]
 }
 
 model Role {
-  id       String    @id /// The corresponding 
-  type     RoleType
-  guild    Guild     @relation(fields: [guildId], references: [id])
-  guildId  String
-  students Student[]
+  id      String   @unique /// The corresponding 
+  type    RoleType
+  guild   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guildId String
+
+  studentsToRoles studentsToRoles[]
+  @@id([guildId, type])
 }
 
 /// Each subsequent role represents a higher command privilege

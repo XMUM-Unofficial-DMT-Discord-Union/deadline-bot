@@ -1,8 +1,6 @@
-import Prisma from "@prisma/client";
 import ms from "ms";
+import { prisma } from "../src/utilities.js";
 
-
-const prisma = new Prisma.PrismaClient();
 
 const studentRepository = prisma.student;
 const guildRepository = prisma.guild;
@@ -62,15 +60,25 @@ await studentRepository.create({
         name: 'Yim Jing Xiang',
         enrolledBatch: '2002',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }, {
-                id: modRole.id
+                role: {
+                    connect: {
+                        id: modRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -82,13 +90,19 @@ await studentRepository.create({
         name: 'Sea Wei Ze',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -100,13 +114,19 @@ await studentRepository.create({
         name: 'Tan Zhi Xian',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -118,13 +138,19 @@ await studentRepository.create({
         name: 'Tan Pek Theng',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -136,13 +162,19 @@ await studentRepository.create({
         name: 'Ng Ca Hoe',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -154,15 +186,25 @@ await studentRepository.create({
         name: 'Ng Jia Iong',
         enrolledBatch: '2002',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }, {
-                id: modRole.id
+                role: {
+                    connect: {
+                        id: modRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -174,17 +216,31 @@ await studentRepository.create({
         name: 'Siew Ee Shin',
         enrolledBatch: '2002',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }, {
-                id: adminRole.id
+                role: {
+                    connect: {
+                        id: adminRole.id
+                    }
+                }
             }, {
-                id: devRole.id
+                role: {
+                    connect: {
+                        id: devRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -196,15 +252,25 @@ await studentRepository.create({
         name: 'Seh Fei Faye',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }, {
-                id: adminRole.id
+                role: {
+                    connect: {
+                        id: adminRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -216,15 +282,25 @@ await studentRepository.create({
         name: 'Chew Min Qian',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }, {
-                id: adminRole.id
+                role: {
+                    connect: {
+                        id: adminRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -236,15 +312,25 @@ await studentRepository.create({
         name: 'Heng Chi En',
         enrolledBatch: '2002',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }, {
-                id: adminRole.id
+                role: {
+                    connect: {
+                        id: adminRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -256,13 +342,19 @@ await studentRepository.create({
         name: 'Kelly Chu Kai Yii',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -274,15 +366,25 @@ await studentRepository.create({
         name: 'Teh Hao Boon',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }, {
-                id: adminRole.id
+                role: {
+                    connect: {
+                        id: adminRole.id
+                    }
+                }
             }]
         },
         guilds: {
-            connect: productionGuild
+            connect: {
+                id: productionGuild.id
+            }
         }
     }
 });
@@ -294,11 +396,19 @@ await studentRepository.create({
         name: 'Pang Yanlin',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
-        }, guilds: { connect: productionGuild }
+        }, guilds: {
+            connect: {
+                id: productionGuild
+            }.id
+        }
     }
 });
 
@@ -309,11 +419,19 @@ await studentRepository.create({
         name: 'Chan Xin Jo',
         enrolledBatch: '2004',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
-        }, guilds: { connect: productionGuild }
+        }, guilds: {
+            connect: {
+                id: productionGuild
+            }.id
+        }
     }
 });
 
@@ -324,11 +442,19 @@ await studentRepository.create({
         name: 'Pang Xiau Zhing',
         enrolledBatch: '2002',
         remindTime: ms(3600000),
-        roles: {
-            connect: [{
-                id: verifiedRole.id
+        studentsToRoles: {
+            create: [{
+                role: {
+                    connect: {
+                        id: verifiedRole.id
+                    }
+                }
             }]
-        }, guilds: { connect: productionGuild }
+        }, guilds: {
+            connect: {
+                id: productionGuild
+            }.id
+        }
     }
 });
 

@@ -3,18 +3,18 @@ import { Student } from '../models/student.js';
 import { Permissions } from '../types.js';
 import { createCommand, GUILD } from '../utilities.js';
 
-type Response = { name: string, id: string, enrolledBatch: string }
+type Response = { name: string, id: string, enrolledBatch: string; };
 type CallBackReturn = [Response, boolean];
 
 const yesButton = new MessageButton()
     .setCustomId('yes')
     .setLabel('Yes')
-    .setStyle('PRIMARY')
+    .setStyle('PRIMARY');
 
 const noButton = new MessageButton()
     .setCustomId('no')
     .setLabel('no')
-    .setStyle('PRIMARY')
+    .setStyle('PRIMARY');
 
 const callbacks = [
     async (interaction: CommandInteraction, message: Message, response: Response): Promise<CallBackReturn> => {
@@ -123,13 +123,11 @@ const command = createCommand('verify', 'Helps us to validate that you are an XM
                                 });
                                 collector.stop();
 
-                                GUILD.addUnverifiedStudent(new Student(
-                                    response.name,
-                                    interaction.user.tag,
-                                    response.id,
-                                    interaction.user.id,
-                                    response.enrolledBatch));
-                                await GUILD.save();
+                                await GUILD.addUnverifiedStudent({
+                                    ...response,
+                                    discordId: interaction.user.id,
+                                    guildId: interaction.guildId as string
+                                });
                             }
                         });
                 }

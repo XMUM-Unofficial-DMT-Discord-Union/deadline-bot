@@ -8,8 +8,8 @@ export type Deadline = {
     description: string,
     url: string,
     datetime: Date,
-    excluded: Array<StudentId>
-}
+    excluded: Array<StudentId>;
+};
 
 export class Course {
     name: string;
@@ -27,7 +27,7 @@ export class Course {
             name: this.name,
             deadlines: this.deadlines,
             students: this.students,
-        }
+        };
     }
 
     static converter(): FirestoreDataConverter<Course> {
@@ -44,6 +44,6 @@ export class Course {
                     students: course.students
                 };
             }
-        }
+        };
     }
 }

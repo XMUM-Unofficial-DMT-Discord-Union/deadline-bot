@@ -1,5 +1,5 @@
 import { AutocompleteInteraction, Message, MessageActionRow } from 'discord.js';
-import { createSubCommand, GUILD } from '../../utilities.js';
+import { createSubCommand, GUILD, prisma } from '../../utilities.js';
 
 const component = new MessageActionRow()
     .addComponents([{
@@ -19,7 +19,7 @@ const component = new MessageActionRow()
         customId: 'yes',
         label: 'Accept',
         style: 'PRIMARY'
-    }])
+    }]);
 
 
 const command = createSubCommand('verify', 'Verifies a member',
@@ -29,16 +29,35 @@ const command = createSubCommand('verify', 'Verifies a member',
         .setAutocomplete(true)),
     async interaction => {
         if (interaction.isAutocomplete()) {
-            const users = GUILD.getAllStudents().unverified;
-            await (interaction as AutocompleteInteraction).respond(users.map(student => { return { name: student._name, value: student._discordId } }));
+            const users = await prisma.student.findMany({
+                where: {
+                    guilds: {
+                        some: {
+                            id: (interaction as AutocompleteInteraction)?.guildId as string
+                        }
+                    },
+                    studentsToRoles: {
+                        some: {
+                            roleType: {
+                                equals: 'UNVERIFIED'
+                            }
+                        }
+                    }
+                }
+            });
+            await (interaction as AutocompleteInteraction).respond(users.map(student => { return { name: student.name, value: student.discordId }; }));
             return;
         }
 
         const discordId = interaction.options.getString('user', true);
 
-        const student = GUILD.getStudent(discordId);
+        const student = await prisma.student.findUnique({
+            where: {
+                discordId: interaction.user.id
+            }
+        });
 
-        if (student === undefined) {
+        if (student === null) {
             await interaction.reply({ content: `There seems to be a out-of-sync problem with the database. Please try again.`, ephemeral: true });
             return;
         }
@@ -46,28 +65,28 @@ const command = createSubCommand('verify', 'Verifies a member',
         const member = await interaction.guild?.members.fetch(discordId);
 
         if (member === undefined) {
-            await interaction.reply({ content: 'I don\'t know how you got here, but this part of the code shouldn\'t even be able to run!', ephemeral: true })
+            await interaction.reply({ content: 'I don\'t know how you got here, but this part of the code shouldn\'t even be able to run!', ephemeral: true });
             return;
         }
 
         const reply = await interaction.reply({
             embeds: [{
                 title: `Verification Details`,
-                description: `Candidate Name: \`${student._name}\``,
+                description: `Candidate Name: \`${student.name}\``,
                 color: '#efd405',
                 fields: [{
                     name: 'Student ID',
-                    value: `\`${student._id}\``,
+                    value: `\`${student.id}\``,
                     inline: true
                 },
                 {
                     name: 'Discord Tag',
-                    value: `\`${student._discordName}\``,
+                    value: `\`${interaction.user.tag}\'`,
                     inline: true
                 },
                 {
                     name: 'Enrolled Batch',
-                    value: `\`${student._enrolledBatch}\``,
+                    value: `\`${student.enrolledBatch}\``,
                     inline: true
                 }]
             }],
@@ -94,12 +113,16 @@ const command = createSubCommand('verify', 'Verifies a member',
                             color: 'GREY'
                         }],
                         components: []
-                    })
+                    });
                 }
                 else if (componentInteraction.customId === 'no') {
 
-                    GUILD.removeUnverifiedStudent(student);
-                    await GUILD.save();
+                    // TODO: Notify student that verification is rejected
+                    await prisma.student.delete({
+                        where: {
+                            discordId: student.discordId
+                        }
+                    });
 
                     await interaction.editReply({
                         embeds: [{
@@ -107,13 +130,23 @@ const command = createSubCommand('verify', 'Verifies a member',
                             color: 'RED'
                         }],
                         components: []
-                    })
+                    });
                 } else if (componentInteraction.customId === 'yes') {
 
-                    GUILD.verifyStudent(student);
-                    await GUILD.save();
+                    await prisma.student.update({
+                        where: {
+                            discordId: student.discordId
+                        },
+                        data: {
+                            studentsToRoles: {
+                                create: [{
+                                    role: (await GUILD.getVerifiedRole()).id
+                                }]
+                            }
+                        }
+                    });
 
-                    await member.roles.add(GUILD.getVerifiedRoleDetails().id);
+                    await member.roles.add((await GUILD.getVerifiedRole()).id);
 
                     await interaction.editReply({
                         embeds: [{
@@ -121,9 +154,9 @@ const command = createSubCommand('verify', 'Verifies a member',
                             color: 'GREEN'
                         }],
                         components: []
-                    })
+                    });
                 }
-            })
+            });
     });
 
 export default command;

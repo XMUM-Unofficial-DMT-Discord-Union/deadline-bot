@@ -11,7 +11,7 @@ function courseReplyOptions() {
         components: [new MessageActionRow()
             .addComponents([(() => {
                 const menu = new MessageSelectMenu()
-                    .setCustomId('course')
+                    .setCustomId('course');
 
                 let hasValue = false;
                 for (let course of Object.values(GUILD.getAllCourses())) {
@@ -22,7 +22,7 @@ function courseReplyOptions() {
                     menu.addOptions({
                         label: course.name,
                         value: course.name
-                    })
+                    });
                 }
 
                 if (!hasValue)
@@ -30,7 +30,7 @@ function courseReplyOptions() {
 
                 return menu;
             })()])]
-    }
+    };
 }
 
 function deadlineReplyOptions(course: Course) {
@@ -46,12 +46,12 @@ function deadlineReplyOptions(course: Course) {
                     menu.addOptions({
                         label: deadline.name,
                         value: deadline.name
-                    })
+                    });
                 }
 
                 return menu;
             })())]
-    }
+    };
 }
 
 const command = createSubCommand('delete', 'Deletes a deadline',
@@ -82,18 +82,16 @@ const command = createSubCommand('delete', 'Deletes a deadline',
         })
             .on('collect', async componentInteraction => {
                 if (componentInteraction.customId === 'course') {
-                    response.course = GUILD.getCourse(componentInteraction.values[0]) as Course;
+                    response.course = await GUILD.getCourse(componentInteraction.values[0]) as unknown as Course;
 
                     await componentInteraction.update({
                         ...deadlineReplyOptions(response.course)
-                    })
+                    });
                 }
                 else if (componentInteraction.customId === 'choose_deadline') {
                     collector.stop();
 
-                    GUILD.removeDeadlineFromCourse(response.course.name, componentInteraction.values[0]);
-
-                    await GUILD.save();
+                    await GUILD.removeDeadlineFromCourse(response.course.name, componentInteraction.values[0]);
 
                     await componentInteraction.update({
                         embeds: [{
@@ -101,9 +99,9 @@ const command = createSubCommand('delete', 'Deletes a deadline',
                             color: 'DARK_GREEN'
                         }],
                         components: []
-                    })
+                    });
                 }
-            })
+            });
     });
 
 export default command;

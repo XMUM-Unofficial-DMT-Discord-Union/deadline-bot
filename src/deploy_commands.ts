@@ -9,7 +9,7 @@ const commandsJSON: RESTPostAPIApplicationCommandsJSONBody[] = [];
 
 BOT_COMMANDS.each((command) => {
     commandsJSON.push(command.data.toJSON());
-})
+});
 
 const rest = new REST({ version: '9' }).setToken(process.env.CLIENT_TOKEN as string);
 
@@ -22,6 +22,9 @@ let commands = await rest.put(Routes.applicationGuildCommands(process.env.CLIENT
 console.log('Successfully registered application commands.');
 
 let permissions: any[] = [];
+
+
+// TODO: Lazy create roles instead of pre-emptively check and create upon load
 
 // Before fetching guild roles, check whether we have stored it in database
 if (!GUILD.exists()) {
@@ -41,15 +44,15 @@ if (!GUILD.exists()) {
             if (adminFound && modFound)
                 break;
             if (!adminFound && role.name === 'Admins') {
-                GUILD.updateAdminRoleId(role.id);
+                await GUILD.updateAdminRoleId(await GUILD.getAdminRole(), role.id);
                 adminFound = true;
             }
             if (!modFound && role.name === 'Mods') {
-                GUILD.updateModRoleId(role.id);
+                await GUILD.updateModRoleId(await GUILD.getModRole(), role.id);
                 modFound = true;
             }
             if (!verifiedFound && role.name === 'Verified') {
-                GUILD.updateVerifiedRoleId(role.id);
+                await GUILD.updateVerifiedRoleId(await GUILD.getVerifiedRole(), role.id);
                 verifiedFound = true;
             }
         }
@@ -63,7 +66,7 @@ if (!GUILD.exists()) {
                 }
             });
 
-            GUILD.updateAdminRoleId((result as RESTPostAPIGuildRoleResult).id);
+            GUILD.updateAdminRoleId(await GUILD.getAdminRole(), (result as RESTPostAPIGuildRoleResult).id);
         }
 
         if (!modFound) {
@@ -75,7 +78,7 @@ if (!GUILD.exists()) {
                 }
             });
 
-            GUILD.updateModRoleId((result as RESTPostAPIGuildRoleResult).id);
+            GUILD.updateModRoleId(await GUILD.getModRole(), (result as RESTPostAPIGuildRoleResult).id);
         }
 
         if (!verifiedFound) {
@@ -84,21 +87,17 @@ if (!GUILD.exists()) {
                 body: {
                     name: 'Verified'
                 }
-            })
+            });
 
-            GUILD.updateVerifiedRoleId((result as RESTPostAPIGuildRoleResult).id);
+            GUILD.updateVerifiedRoleId(await GUILD.getVerifiedRole(), (result as RESTPostAPIGuildRoleResult).id);
         }
-
-        // Commit these changes to the database
-        await GUILD.save();
     }
-
 }
 
 // Now we have ensured that the guild exists, we can fetch admin and mod roles
-const adminId = GUILD.getAdminRoleDetails().id;
-const modId = GUILD.getModRoleDetails().id;
-const verifiedId = GUILD.getVerifiedRoleDetails().id;
+const adminId = (await GUILD.getAdminRole()).id;
+const modId = (await GUILD.getModRole()).id;
+const verifiedId = (await GUILD.getVerifiedRole()).id;
 
 // Now we associate a command to an id, and the respective permission
 for (let command of BOT_COMMANDS.entries()) {
@@ -138,7 +137,7 @@ for (let command of BOT_COMMANDS.entries()) {
             id: verifiedId,
             type: ApplicationCommandPermissionType.Role,
             permission: false
-        })
+        });
     }
 
     // Otherwise, open the command for everyone that's verified
@@ -147,7 +146,7 @@ for (let command of BOT_COMMANDS.entries()) {
             id: verifiedId,
             type: ApplicationCommandPermissionType.Role,
             permission: true
-        })
+        });
     }
 }
 

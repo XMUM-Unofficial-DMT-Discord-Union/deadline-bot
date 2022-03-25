@@ -9,13 +9,13 @@ const command = createSubCommand('leave', 'Leave a course',
         .setAutocomplete(true)),
     async interaction => {
         if (interaction.isAutocomplete()) {
-            await (interaction as AutocompleteInteraction).respond((_ => {
+            await (interaction as AutocompleteInteraction).respond(await (async _ => {
                 let result = [];
-                for (let course of Object.values(GUILD.getAllCourses())) {
-                    if (!course.students.includes((interaction as AutocompleteInteraction).user.id))
+                for (let course of await GUILD.getAllCourses()) {
+                    if (course.students.find(student => student.discordId === (interaction as AutocompleteInteraction).user.id) === undefined)
                         continue;
 
-                    result.push({ name: course.name, value: course.name })
+                    result.push({ name: course.name, value: course.name });
                 }
 
                 return result;
@@ -25,21 +25,19 @@ const command = createSubCommand('leave', 'Leave a course',
 
         const courseName = interaction.options.getString('course', true);
 
-        const course = GUILD.getCourse(courseName);
+        const course = await GUILD.getCourse(courseName);
 
         if (course === undefined) {
             await interaction.reply({ content: `Sorry, there was a problem finding the given course. It probably didn't exist in the database.\nPlease inform the developers about this problem.`, ephemeral: true });
             return;
         }
 
-        if (!GUILD.removeStudentFromCourse(courseName, GUILD.getStudent(interaction.user.id)?._id as string)) {
+        if (!await GUILD.removeStudentFromCourse(courseName, interaction.user.id)) {
             await interaction.reply({ content: `Sorry, there was a problem removing you from this course. Please try again later.`, ephemeral: true });
             return;
         }
 
-        await GUILD.save();
-
         await interaction.reply({ content: `You have left '${course.name}'!`, ephemeral: true });
-    })
+    });
 
 export default command;
