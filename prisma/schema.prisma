@@ -7,6 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Application {
+  id        Int             @id @default(autoincrement())
+  type      ApplicationType
+  discordId String
+  name      String
+  reason    String          @db.Text
+}
+
+// TODO: Convert to utilise Postgres table inheritance
+model Suggestion {
+  id       Int            @id @default(autoincrement())
+  type     SuggestionType
+  reason   String         @db.Text
+  name     String
+  datetime DateTime?      @db.Timestamptz()
+  location String?
+}
+
+model Report {
+  id                Int        @id @default(autoincrement())
+  type              ReportType
+  reporterDiscordId String
+  reportedDiscordId String
+  datetime          DateTime   @db.Timestamptz()
+  reason            String     @db.Text
+}
+
 model Guild {
   /// The associated UUID retrieved from Discord
   id       String    @id @unique
@@ -62,6 +89,23 @@ model Role {
 
   studentsToRoles studentsToRoles[]
   @@id([guildId, type])
+}
+
+enum ApplicationType {
+  ADMIN
+  MOD
+  DEV
+}
+
+enum ReportType {
+  ADMIN
+  MOD
+  DEV
+}
+
+enum SuggestionType {
+  CHANNEL
+  EVENT
 }
 
 /// Each subsequent role represents a higher command privilege
