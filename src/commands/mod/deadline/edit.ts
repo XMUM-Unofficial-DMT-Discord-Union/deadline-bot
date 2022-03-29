@@ -148,7 +148,7 @@ async function courseReplyOptions() {
 
                 let hasValues = false;
                 for (let course of await GUILD.getAllCourses()) {
-                    if (course.deadline.length === 0)
+                    if (course.deadlines.length === 0)
                         continue;
 
                     hasValues = true;
@@ -167,7 +167,7 @@ async function courseReplyOptions() {
     };
 }
 
-function deadlineReplyOptions(course: Course & { deadline: Deadline[]; }) {
+function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
     return {
         embeds: [{
             title: 'Choose a deadline to edit.'
@@ -176,7 +176,7 @@ function deadlineReplyOptions(course: Course & { deadline: Deadline[]; }) {
                 const menu = new MessageSelectMenu()
                     .setCustomId('choose_deadline');
 
-                for (let deadline of course.deadline) {
+                for (let deadline of course.deadlines) {
                     menu.addOptions({
                         label: deadline.name,
                         value: deadline.name

@@ -3,7 +3,6 @@ import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
 import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, MessageSelectMenu, TextBasedChannel } from 'discord.js';
-import { TypedEmitter } from 'tiny-typed-emitter';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
 type Response = {

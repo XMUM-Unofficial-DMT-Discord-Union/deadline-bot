@@ -1,24 +1,24 @@
+import { Application } from '@prisma/client';
 import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, TextBasedChannel } from 'discord.js';
-import { Application } from '../../../models/guild.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
 const ID_STATES: {
-    [discordId: string]: number
+    [discordId: string]: number;
 } = {};
 
-type Response = Application
+type Response = Omit<Application, 'id'>;
 
 type CallbackReturn = [Response, boolean];
 
 const yesButton = new MessageButton()
     .setCustomId('yes')
     .setLabel('Yes')
-    .setStyle('PRIMARY')
+    .setStyle('PRIMARY');
 
 const noButton = new MessageButton()
     .setCustomId('no')
     .setLabel('no')
-    .setStyle('PRIMARY')
+    .setStyle('PRIMARY');
 
 const callbacks = [
     async (interaction: CommandInteraction, message: Message | undefined, response: Response, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
@@ -86,8 +86,7 @@ const callbacks = [
                     collector.stop();
                     await componentInteraction.update({ components: [] });
 
-                    GUILD.addApplication(response);
-                    await GUILD.save();
+                    await GUILD.addApplication(response);
 
                     await interaction.editReply({
                         embeds: [{
@@ -104,8 +103,8 @@ const callbacks = [
                 await interaction.editReply({
                     components: [new MessageActionRow()
                         .setComponents(disabled)]
-                })
-            })
+                });
+            });
 
 
         return [response, true];
@@ -114,12 +113,13 @@ const callbacks = [
 
 async function questionsLifecycle(interaction: CommandInteraction) {
     ID_STATES[interaction.user.id] = 0;
-    let response: Application = {
+    let response: Response = {
         discordId: interaction.user.id,
         name: '',
-        type: 'admin',
-        reason: ''
-    }
+        type: 'ADMIN',
+        reason: '',
+        guildId: interaction.guildId as string
+    };
     let isSuccess = true;
 
     const reply = await interaction.reply({
@@ -144,7 +144,7 @@ async function questionsLifecycle(interaction: CommandInteraction) {
                 ID_STATES[interaction.user.id] -= 1;
                 await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
             }
-        })
+        });
 }
 
 const command = createSubCommand('admin', 'Apply for admin role',

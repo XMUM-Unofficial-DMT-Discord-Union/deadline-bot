@@ -13,6 +13,9 @@ model Application {
   discordId String
   name      String
   reason    String          @db.Text
+
+  guild   Guild  @relation(fields: [guildId], references: [id])
+  guildId String
 }
 
 // TODO: Convert to utilise Postgres table inheritance
@@ -21,8 +24,11 @@ model Suggestion {
   type     SuggestionType
   reason   String         @db.Text
   name     String
-  datetime DateTime?      @db.Timestamptz()
+  datetime DateTime?      @default(now()) @db.Timestamptz()
   location String?
+
+  guild   Guild  @relation(fields: [guildId], references: [id])
+  guildId String
 }
 
 model Report {
@@ -32,6 +38,9 @@ model Report {
   reportedDiscordId String
   datetime          DateTime   @db.Timestamptz()
   reason            String     @db.Text
+
+  guild   Guild  @relation(fields: [guildId], references: [id])
+  guildId String
 }
 
 model Guild {
@@ -39,6 +48,10 @@ model Guild {
   id       String    @id @unique
   role     Role[]
   students Student[]
+
+  applications Application[]
+  suggestions  Suggestion[]
+  reports      Report[]
 }
 
 model Deadline {
@@ -53,10 +66,10 @@ model Deadline {
 }
 
 model Course {
-  id       Int        @id @default(autoincrement())
-  name     String     @unique
-  deadline Deadline[]
-  students Student[]
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  deadlines Deadline[]
+  students  Student[]
 }
 
 model studentsToRoles {

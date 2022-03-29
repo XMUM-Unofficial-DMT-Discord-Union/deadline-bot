@@ -1,56 +1,36 @@
-import Big from 'big.js';
 import { Client } from 'discord.js';
 import dayjs from 'dayjs';
-import { collection, CollectionReference, doc, DocumentData, DocumentReference, getDoc, getDocs, writeBatch, WriteBatch } from 'firebase/firestore';
 
-import { firestoreApp } from '../database.js';
 import { cancelDeadline, cancelReminders, rescheduleDeadline, rescheduleReminders, scheduleDeadline, scheduleReminders } from '../scheduler.js';
 import { Course } from './course.js';
 
-import { GUILD, prisma } from '../utilities.js';
-import { Deadline, Role, Student, studentsToRoles } from '@prisma/client';
-import { Type } from 'typescript';
+import { prisma } from '../utilities.js';
+import { Application, Deadline, Prisma, Report, Role, Student, studentsToRoles, Suggestion } from '@prisma/client';
 
-type WriteCallback = () => void;
-
-type ChannelSuggestion = {
-    type: 'channel',
-    name: string;
-};
-type EventSuggestion = {
-    type: 'event',
-    name: string,
-    datetime: Date,
+export type EventSuggestion = Suggestion & {
     location: string;
 };
-type Suggestion = {
-    userDiscordId: string,
-    reason: string;
-} & (ChannelSuggestion | EventSuggestion);
 
-type AdminReport = {
-    type: 'admin';
-};
-type ModReport = {
-    type: 'mod';
-};
-type DevReport = {
-    type: 'dev';
-};
-type Report = {
-    discordId: string,
-    datetime: Date,
-    reason: string;
-} & (AdminReport | ModReport | DevReport);
+export type ChannelSuggestion = Omit<Suggestion, 'location'>;
 
-type AdminApplication = {
-    type: 'admin';
+type AdminReport = Report & {
+    type: 'ADMIN';
 };
-type ModApplication = {
-    type: 'mod';
+type ModReport = Report & {
+    type: 'MOD';
 };
-type DevApplication = {
-    type: 'dev';
+type DevReport = Report & {
+    type: 'DEV';
+};
+
+type AdminApplication = Application & {
+    type: 'ADMIN';
+};
+type ModApplication = Application & {
+    type: 'MOD';
+};
+type DevApplication = Application & {
+    type: 'DEV';
 };
 
 type Diff<T, U> = T extends U ? never : T;
@@ -63,119 +43,8 @@ type StudentFields = Partial<Student & {
     studentsToRoles: studentsToRoles[];
 }> & Pick<Student, 'discordId'>;
 
-export type Application = {
-    discordId: string,
-    name: string,
-    reason: string;
-} & (AdminApplication | ModApplication | DevApplication);
-
 export class Guild {
-    _suggestionNextEntryId: Big;
-    _reportNextEntryId: Big;
-    _applicationNextEntryId: {
-        [type: string]: Big;
-    };
-
-    _rootDocument: DocumentReference<DocumentData>;
-    _rolesCollection: CollectionReference<DocumentData>;
-    _coursesCollection: CollectionReference<Course>;
-    _suggestionsCollection: CollectionReference<Suggestion>;
-    _reportsCollection: CollectionReference<Report>;
-    _applicationsCollection: CollectionReference<Application>;
-
-    _courses: { [name: string]: Course; };
-
-    _roles: {
-        [role: string]: {
-            id: string,
-            commands: [
-                {
-                    id: string;
-                }
-            ];
-        };
-    };
-
-    _students: {
-        verified: Array<Student>,
-        unverified: Array<Student>;
-    };
-
-    _suggestions: {
-        [index: string]: Suggestion;
-    };
-
-    _reports: {
-        [index: string]: Report;
-    };
-
-    _applications: {
-        [type: string]: {
-            [index: string]: Application;
-        };
-    };
-
-    _writeBatch: WriteBatch | undefined;
-    _writeCallbacks: Array<WriteCallback>;
-
     static _instance: Guild | undefined;
-
-    constructor(id: string = '0') {
-        this._suggestionNextEntryId = new Big('0');
-        this._reportNextEntryId = new Big('0');
-        this._applicationNextEntryId = {
-            admin: new Big('0'),
-            mod: new Big('0'),
-            dev: new Big('0')
-        };
-
-        this._rootDocument = doc(firestoreApp, `guilds/${id}`);
-        this._rolesCollection = collection(this._rootDocument, 'roles');
-        this._coursesCollection = collection(this._rootDocument, 'courses').withConverter(Course.converter());
-
-        this._suggestionsCollection = collection(this._rootDocument, 'suggestions').withConverter({
-            fromFirestore: (snap) => {
-                if (snap.data().type === 'event') {
-                    let { datetime, ...rest } = snap.data();
-                    return {
-                        datetime: new Date(datetime.seconds * 1000),
-                        ...rest
-                    } as Suggestion & EventSuggestion;
-                }
-                else
-                    return snap.data() as Suggestion & ChannelSuggestion;
-            },
-            toFirestore: (suggestion) => suggestion
-        });
-
-        this._reportsCollection = collection(this._rootDocument, 'reports').withConverter({
-            fromFirestore: (snap) => {
-                let { datetime, ...rest } = snap.data();
-                return {
-                    datetime: new Date(snap.data().datetime.seconds * 1000),
-                    ...rest
-                } as Report;
-            },
-            toFirestore: (report) => report
-        });
-
-        this._applicationsCollection = collection(this._rootDocument, 'applications').withConverter({
-            fromFirestore: (snap) => snap.data() as Application,
-            toFirestore: (application) => application
-        });
-
-        this._courses = {};
-
-        this._roles = {};
-
-        this._students = { unverified: [], verified: [] };
-
-        this._suggestions = {};
-        this._reports = {};
-        this._applications = { admin: {}, mod: {}, dev: {} };
-
-        this._writeCallbacks = [];
-    }
 
     static getInstance() {
         if (this._instance === undefined)
@@ -389,7 +258,7 @@ export class Guild {
         return await prisma.course.findMany({
             include: {
                 students: true,
-                deadline: true
+                deadlines: true
             }
         });
     }
@@ -400,7 +269,7 @@ export class Guild {
                 name: name
             },
             include: {
-                deadline: true
+                deadlines: true
             }
         });
 
@@ -417,7 +286,7 @@ export class Guild {
             },
             include: {
                 students: true,
-                deadline: true
+                deadlines: true
             }
         });
 
@@ -449,7 +318,7 @@ export class Guild {
         if (student === null)
             return false;
 
-        course.deadline.forEach(deadline =>
+        course.deadlines.forEach(deadline =>
             cancelReminders(courseName, deadline.name, student.id));
 
         return true;
@@ -462,7 +331,7 @@ export class Guild {
             },
             include: {
                 students: true,
-                deadline: true
+                deadlines: true
             }
         });
 
@@ -490,11 +359,11 @@ export class Guild {
                 }
             },
             include: {
-                deadline: true
+                deadlines: true
             }
         });
 
-        updatedCourse.deadline.forEach(deadline =>
+        updatedCourse.deadlines.forEach(deadline =>
             scheduleReminders(client, courseName, deadline, student));
 
         return true;
@@ -507,14 +376,14 @@ export class Guild {
             },
             include: {
                 students: true,
-                deadline: true
+                deadlines: true
             }
         });
 
         if (course === null)
             return false;
 
-        const deadline = course.deadline.find(value => value.name !== deadlineName);
+        const deadline = course.deadlines.find(value => value.name !== deadlineName);
 
         if (deadline === undefined)
             return false;
@@ -526,8 +395,9 @@ export class Guild {
         });
 
         cancelDeadline(courseName, deadlineName);
-        this._courses[courseName].students.forEach(id =>
-            cancelReminders(courseName, deadlineName, id)
+
+        course.students.forEach(student =>
+            cancelReminders(courseName, deadlineName, student.id)
         );
 
         return true;
@@ -608,17 +478,6 @@ export class Guild {
         });
 
         return true;
-    }
-
-    getStudent(discordId: string) {
-        for (let students of Object.values(this._students)) {
-            for (let student of students) {
-                if (student.discordId === discordId)
-                    return student;
-            }
-        }
-
-        return undefined;
     }
 
     /**
@@ -739,14 +598,14 @@ export class Guild {
                 courses: {
                     select: {
                         name: true,
-                        deadline: true
+                        deadlines: true
                     }
                 }
             }
         });
 
         updatedStudent.courses.forEach(course => {
-            course.deadline.forEach(deadline => {
+            course.deadlines.forEach(deadline => {
                 rescheduleReminders(course.name, deadline, updatedStudent);
             });
         });
@@ -920,179 +779,189 @@ export class Guild {
         return true;
     }
 
-    getAllSuggestions() {
-        return this._suggestions;
-    }
-
-    getChannelSuggestions() {
-        let result: { [index: string]: Suggestion & ChannelSuggestion; } = {};
-
-        for (let suggestion of Object.entries(this._suggestions)) {
-            if (suggestion[1].type === 'channel')
-                result[suggestion[0]] = suggestion[1];
-        }
-        return result;
-    }
-
-    getEventSuggestions() {
-        let result: { [index: string]: Suggestion & EventSuggestion; } = {};
-
-        for (let suggestion of Object.entries(this._suggestions)) {
-            if (suggestion[1].type === 'event')
-                result[suggestion[0]] = suggestion[1];
-        }
-        return result;
-    }
-
-    addSuggestion(suggestion: Suggestion) {
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._suggestionsCollection, this._suggestionNextEntryId.toString()), suggestion);
-        this._writeBatch.set(this._rootDocument, { suggestionNextEntryId: this._suggestionNextEntryId.plus('1').toString() });
-
-        // Also add pending write to list of suggestions
-        this._writeCallbacks.push(() => {
-            this._suggestions[this._suggestionNextEntryId.toString()] = suggestion;
-        });
-
-        this._suggestionNextEntryId = this._suggestionNextEntryId.plus('1');
-    }
-
-    deleteSuggestion(suggestionId: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.delete(doc(this._suggestionsCollection, suggestionId));
-
-        // Also add pending delete to list of suggestions
-        this._writeCallbacks.push(() => {
-            delete this._suggestions[suggestionId];
+    async getAllSuggestions(guildId: string) {
+        return await prisma.suggestion.findMany({
+            where: {
+                guildId: guildId
+            }
         });
     }
 
-    getAllReports() {
-        return this._reports;
+    async getChannelSuggestions(guildId: string) {
+        return await prisma.suggestion.findMany({
+            where: {
+                guildId: guildId,
+                type: 'CHANNEL'
+            }
+        }) as ChannelSuggestion[];
     }
 
-    getModReports() {
-        let result: { [index: string]: Report; } = {};
-
-        for (let report of Object.entries(this._reports)) {
-            if (report[1].type === 'mod')
-                result[report[0]] = report[1];
-        }
-        return result;
+    async getEventSuggestions(guildId: string) {
+        return await prisma.suggestion.findMany({
+            where: {
+                guildId: guildId,
+                type: 'EVENT'
+            }
+        }) as EventSuggestion[];
     }
 
-    addReport(report: Report) {
-        this.startWriteBatch();
+    async addSuggestion(suggestion: Omit<Suggestion, 'id'>) {
 
-        this._writeBatch.set(doc(this._reportsCollection, this._reportNextEntryId.toString()), report);
-        this._writeBatch.set(this._rootDocument, { reportNextEntryId: this._reportNextEntryId.plus('1').toString() });
+        if (suggestion.type === 'CHANNEL' && suggestion.location !== null)
+            throw 'Malformed Channel Suggestion.';
 
-        // Also add pending write to list of reports 
-        this._writeCallbacks.push(() => {
-            this._reports[this._reportNextEntryId.toString()] = report;
+        if (suggestion.type === 'EVENT' && suggestion.location === null)
+            throw 'Malformed Event Suggestion.';
 
-            this._reportNextEntryId.plus('1');
-        });
-
-        this._reportNextEntryId = this._reportNextEntryId.plus('1');
-    }
-
-    deleteReport(suggestionId: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.delete(doc(this._suggestionsCollection, suggestionId));
-
-        // Also add pending delete to list of reports 
-        this._writeCallbacks.push(() => {
-            delete this._reports[suggestionId];
+        return await prisma.suggestion.create({
+            data: {
+                ...suggestion
+            }
         });
     }
 
-    getAllApplications() {
-        return this._applications;
-    }
-
-    getAdminApplications() {
-        return this._applications['admin'];
-    }
-
-    getModApplications() {
-        return this._applications['mod'];
-    }
-
-    getDevApplications() {
-        return this._applications['dev'];
-    }
-
-    addApplication(application: Application) {
-        this.startWriteBatch();
-
-        let response: any = {};
-
-        response[`${application.type}ApplicationNextEntryId`] = this._applicationNextEntryId[application.type].plus('1').toString();
-
-        this._writeBatch.set(doc(this._applicationsCollection, `${application.type}: ${this._applicationNextEntryId[application.type].toString()}`), application);
-        this._writeBatch.set(this._rootDocument, response);
-
-        // Also add pending write to list of applications 
-        this._writeCallbacks.push(() => {
-            this._applications[application.type][this._applicationNextEntryId[application.type].toString()] = application;
+    async deleteSuggestion(suggestionId: number) {
+        const suggestion = await prisma.suggestion.findUnique({
+            where: {
+                id: suggestionId
+            }
         });
 
-        this._applicationNextEntryId[application.type] = this._applicationNextEntryId[application.type].plus('1');
+        if (suggestion === null)
+            return false;
+
+        // TODO: Catching wrongful deletions of non-existent records
+        await prisma.suggestion.delete({
+            where: {
+                id: suggestionId
+            }
+        });
+
+        return true;
     }
 
-    deleteApplication(applicationType: string, applicationId: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.delete(doc(this._applicationsCollection, `${applicationType}: ${applicationId}`));
-
-        // Also add pending delete to list of applications 
-        this._writeCallbacks.push(() => {
-            delete this._applications[applicationType][this._applicationNextEntryId[applicationType].toString()];
+    async getAllReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId
+            }
         });
     }
 
-    async save() {
-        if (!this.writeBatchStarted(this._writeBatch)) {
-            Promise.reject('There\'s nothing to write!');
-            return;
-        }
-
-        console.log('Saving...');
-        await this._writeBatch.commit();
-        console.log('Saved!');
-
-        // Also save these writes to this instance
-        while (this._writeCallbacks.length !== 0)
-            (this._writeCallbacks.pop() as WriteCallback)();
-
-        // Remove the instance afterwards
-        this._writeBatch = undefined;
+    async getAdminReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId,
+                type: 'ADMIN'
+            }
+        }) as AdminReport[];
     }
 
-    /**
-     * Uses an existing write batch if intialized, otherwise creates a new write batch.
-     */
-    private startWriteBatch(): asserts this is { _writeBatch: WriteBatch; } {
-        if (this.writeBatchStarted(this._writeBatch))
-            return;
-
-        this._writeBatch = writeBatch(firestoreApp);
+    async getModReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId,
+                type: 'MOD'
+            }
+        }) as ModReport[];
     }
 
-    private writeBatchStarted(writeBatch: WriteBatch | undefined): writeBatch is WriteBatch {
-        return writeBatch !== undefined;
+    async getDevReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId,
+                type: 'DEV'
+            }
+        }) as DevReport[];
     }
-    /**
-     * 
-     * @param id The id of the guild
-     * @returns A Guild object, modelling the database version of Guild
-     */
-    static async get(id: string) {
-        const result = new Guild(id);
-        return result;
+
+    async addReport(report: Omit<Report, 'id'>) {
+        return await prisma.report.create({
+            data: {
+                ...report
+            }
+        });
+    }
+
+    async deleteReport(reportId: number) {
+        const report = await prisma.report.findUnique({
+            where: {
+                id: reportId
+            }
+        });
+
+        if (report === null)
+            return false;
+
+        // TODO: Catching wrongful deletions of non-existent records
+        await prisma.report.delete({
+            where: {
+                id: reportId
+            }
+        });
+
+        return true;
+    }
+
+    async getAllApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId
+            }
+        });
+    }
+
+    async getAdminApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId,
+                type: 'ADMIN'
+            }
+        }) as AdminApplication[];
+    }
+
+    async getModApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId,
+                type: 'MOD'
+            }
+        }) as ModApplication[];
+    }
+
+    async getDevApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId,
+                type: 'DEV'
+            }
+        }) as DevApplication[];
+    }
+
+    async addApplication(application: Omit<Application, 'id'>) {
+        return await prisma.application.create({
+            data: {
+                ...application
+            }
+        });
+    }
+
+    async deleteApplication(applicationId: number) {
+        const application = await prisma.application.findUnique({
+            where: {
+                id: applicationId
+            }
+        });
+
+        if (application === null)
+            return false;
+
+        await prisma.application.delete({
+            where: {
+                id: applicationId
+            }
+        });
+
+        return true;
     }
 }
