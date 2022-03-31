@@ -1,5 +1,4 @@
-import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, MessageSelectMenu, TextBasedChannel } from 'discord.js';
-import { Student } from '../models/student.js';
+import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, TextBasedChannel } from 'discord.js';
 import { Permissions } from '../types.js';
 import { createCommand, GUILD } from '../utilities.js';
 

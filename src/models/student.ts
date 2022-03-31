@@ -1,5 +1,3 @@
-import 'firebase/firestore';
-import { FirestoreDataConverter } from 'firebase/firestore';
 import ms, { StringValue } from 'ms';
 
 import { prisma } from '../utilities.js';
@@ -98,32 +96,5 @@ export class Student {
         return undefined;
 
         //return (await getDoc(doc(firestoreApp, `guilds/${process.env.GUILD_ID as string}/students/${id}`).withConverter(Student.converter()))).data();
-    }
-
-    static converter(): FirestoreDataConverter<Student> {
-        return {
-            fromFirestore: (snapshot) => {
-                // By default, the remind time is 1 week before the deadline
-                const defaultRemindTime = 604800000;
-                return new Student(
-                    snapshot.data().name,
-                    snapshot.data().id,
-                    snapshot.id,
-                    snapshot.data().enrolledBatch,
-                    snapshot.data().remindTime === 0 ? defaultRemindTime : snapshot.data().remindTime,
-                    snapshot.data().verified,
-                    snapshot.data().type);
-            },
-            toFirestore: (student: Student) => {
-                return {
-                    name: student.name,
-                    id: student.id,
-                    enrolledBatch: student.enrolledBatch,
-                    remindTime: student.remindTime,
-                    verified: student.verified,
-                    type: student.type
-                };
-            }
-        };
     }
 }

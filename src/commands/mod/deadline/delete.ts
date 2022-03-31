@@ -1,6 +1,6 @@
 import { Message, MessageActionRow, MessageSelectMenu } from 'discord.js';
 
-import { Course } from '../../../models/course.js';
+import { Course, Deadline } from '@prisma/client';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
 function courseReplyOptions() {
@@ -33,7 +33,7 @@ function courseReplyOptions() {
     };
 }
 
-function deadlineReplyOptions(course: Course) {
+function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
     return {
         embeds: [{
             title: 'Choose a deadline to delete.'
@@ -82,7 +82,8 @@ const command = createSubCommand('delete', 'Deletes a deadline',
         })
             .on('collect', async componentInteraction => {
                 if (componentInteraction.customId === 'course') {
-                    response.course = await GUILD.getCourse(componentInteraction.values[0]) as unknown as Course;
+                    const course = await GUILD.getCourse(componentInteraction.values[0], { deadlines: true });
+                    response.course = await GUILD.getCourse(componentInteraction.values[0], { deadlines: true }) as unknown as Course;
 
                     await componentInteraction.update({
                         ...deadlineReplyOptions(response.course)

@@ -65,6 +65,7 @@ model Deadline {
   courseId         Int
 }
 
+// TODO: Figure out either use Global Course or Local Course (Guild-specific Course)
 model Course {
   id        Int        @id @default(autoincrement())
   name      String     @unique
