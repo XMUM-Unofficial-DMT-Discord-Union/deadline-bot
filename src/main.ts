@@ -4,10 +4,11 @@ import { Event } from './types.js';
 import { directoryFiles } from './utilities.js';
 import { initializeScheduler } from './scheduler.js';
 import { fileURLToPath } from 'url';
-
-
+import discordModals from 'discord-modals';
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MEMBERS, Intents.FLAGS.DIRECT_MESSAGES] });
+
+discordModals(client);
 
 // Dynamically read all event files
 for (const eventPromise of directoryFiles<Event>(fileURLToPath(import.meta.url), 'events')) {
@@ -22,3 +23,5 @@ for (const eventPromise of directoryFiles<Event>(fileURLToPath(import.meta.url),
 client.login(process.env.CLIENT_TOKEN as string);
 
 await initializeScheduler(client);
+
+export { client };

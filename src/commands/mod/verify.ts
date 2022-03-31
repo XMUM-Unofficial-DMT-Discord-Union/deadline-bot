@@ -139,14 +139,32 @@ const command = createSubCommand('verify', 'Verifies a member',
                         },
                         data: {
                             studentsToRoles: {
-                                create: [{
-                                    role: (await GUILD.getVerifiedRole()).id
-                                }]
+                                deleteMany: {
+                                    guildId: member.guild.id,
+                                    studentDiscordId: member.id,
+                                    roleType: 'UNVERIFIED'
+                                },
+                                create: {
+                                    guildId: member.guild.id,
+                                    roleType: 'VERIFIED'
+                                }
                             }
                         }
                     });
 
-                    await member.roles.add((await GUILD.getVerifiedRole()).id);
+                    await member.roles.add((await GUILD.getVerifiedRole(interaction.guildId as string, interaction.client)).id);
+
+                    // Also add batch role - first fetch the role
+                    let role = await member.guild.roles.cache.find(role => role.name === student.enrolledBatch);
+
+                    if (role === undefined)
+                        role = await member.guild.roles.create({
+                            name: student.enrolledBatch,
+                            hoist: true,
+                            color: '#2ECC71'
+                        });
+
+                    await member.roles.add(role);
 
                     await interaction.editReply({
                         embeds: [{

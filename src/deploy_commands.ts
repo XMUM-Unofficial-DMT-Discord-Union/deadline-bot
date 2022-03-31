@@ -1,15 +1,15 @@
 import { REST } from '@discordjs/rest';
-import { assert } from 'console';
 import { ApplicationCommandPermissionType, RESTGetAPICurrentUserGuildsResult, RESTGetAPIGuildRolesResult, RESTPostAPIApplicationCommandsJSONBody, RESTPostAPIGuildRoleResult, RESTPutAPIApplicationGuildCommandsResult, Routes } from 'discord-api-types/v9';
 import { exit } from 'process';
 
-import BOT_COMMANDS from './commands.js';
+import Commands from './commands.js';
 import { Permissions } from './types.js';
 import { GUILD } from './utilities.js';
+import { client } from './main.js';
 
 const commandsJSON: RESTPostAPIApplicationCommandsJSONBody[] = [];
 
-BOT_COMMANDS.each((command) => {
+Commands.BOT_COMMANDS.each((command) => {
     commandsJSON.push(command.data.toJSON());
 });
 
@@ -50,6 +50,7 @@ for (let guild of guilds) {
         // 2) Role with the name "Admins"
         // 3) Role with the name "Mods"
         // 4) Role with the name "Verified"
+        // 5) Role with the name "Unverified"
         // Otherwise, we create the missing roles respectively
         let guildRoles = await rest.get(Routes.guildRoles(guild.id)).catch(error => {
             console.error(`Error fetching guild roles of id ${guild.id}.`);
@@ -60,13 +61,15 @@ for (let guild of guilds) {
             adminRoleId: '',
             modRoleId: '',
             verifiedRoleId: '',
-            devRoleId: ''
+            devRoleId: '',
+            unverifiedRoleId: ''
         };
 
         let devFound = false;
         let adminFound = false;
         let modFound = false;
         let verifiedFound = false;
+        let unverifiedFound = false;
 
         for (let role of guildRoles as RESTGetAPIGuildRolesResult) {
             if (adminFound && modFound && verifiedFound && devFound)
@@ -86,6 +89,10 @@ for (let guild of guilds) {
             if (!verifiedFound && role.name === 'Verified') {
                 roleIds.verifiedRoleId = role.id;
                 verifiedFound = true;
+            }
+            if (!unverifiedFound && role.name === 'Unverified') {
+                roleIds.verifiedRoleId = role.id;
+                unverifiedFound = true;
             }
         }
 
@@ -136,6 +143,17 @@ for (let guild of guilds) {
             roleIds.verifiedRoleId = result.id;
         }
 
+        if (!unverifiedFound) {
+            // Missing verified role - create
+            let result = await rest.post(Routes.guildRoles(guild.id), {
+                body: {
+                    name: 'Unverified'
+                }
+            }) as RESTPostAPIGuildRoleResult;
+
+            roleIds.unverifiedRoleId = result.id;
+        }
+
         // Now roles have been successfully fetched/created: push into database
         await GUILD.createGuild({ id: guild.id, ...roleIds });
 
@@ -143,58 +161,14 @@ for (let guild of guilds) {
     }
 
     // Now we have ensured that the guild exists, but roles might not exists anymore: create/fetch roles
-    // TODO: Simplify so that we don't end up in try-catch hell
-    let devId = '';
-    try {
-        devId = (await GUILD.getDevRole(guild.id)).id;
-    } catch (_) {
-        let result = await rest.post(Routes.guildRoles(guild.id), {
-            body: {
-                name: 'Devs',
-                hoist: true
-            }
-        }) as RESTPostAPIGuildRoleResult;
-        devId = (await GUILD.createDevRole(guild.id, result.id)).id;
-    }
-    let adminId = '';
-    try {
-        adminId = (await GUILD.getAdminRole(guild.id)).id;
-    } catch (_) {
-        let result = await rest.post(Routes.guildRoles(guild.id), {
-            body: {
-                name: 'Admins',
-                hoist: true
-            }
-        }) as RESTPostAPIGuildRoleResult;
-        adminId = (await GUILD.createAdminRole(guild.id, result.id)).id;
-    }
-    let modId = '';
-    try {
-        modId = (await GUILD.getModRole(guild.id)).id;
-    } catch (_) {
-        let result = await rest.post(Routes.guildRoles(guild.id), {
-            body: {
-                name: 'Mods',
-                hoist: true
-            }
-        }) as RESTPostAPIGuildRoleResult;
-        modId = (await GUILD.createModRole(guild.id, result.id)).id;
-    }
-    let verifiedId = '';
-    try {
-        verifiedId = (await GUILD.getVerifiedRole(guild.id)).id;
-    } catch (_) {
-        let result = await rest.post(Routes.guildRoles(guild.id), {
-            body: {
-                name: 'Verified',
-                hoist: true
-            }
-        }) as RESTPostAPIGuildRoleResult;
-        verifiedId = (await GUILD.createVerifiedRole(guild.id, result.id)).id;
-    }
+    let devId = (await GUILD.getDevRole(guild.id, client)).id;
+    let adminId = (await GUILD.getAdminRole(guild.id, client)).id;
+    let modId = (await GUILD.getModRole(guild.id, client)).id;
+    let verifiedId = (await GUILD.getVerifiedRole(guild.id, client)).id;
+    let unverifiedId = (await GUILD.getUnverifiedRole(guild.id, client)).id;
 
     // Now we associate a command to an id, and the respective permission
-    for (let command of BOT_COMMANDS.entries()) {
+    for (let command of Commands.BOT_COMMANDS.entries()) {
         const object = (commands as RESTPutAPIApplicationGuildCommandsResult).find(value => value.name === command[0]);
 
         permissions.push({
@@ -259,3 +233,5 @@ for (let guild of guilds) {
             console.error(error);
         });
 }
+
+client.destroy();

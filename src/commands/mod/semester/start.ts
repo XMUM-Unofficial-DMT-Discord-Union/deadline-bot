@@ -1,5 +1,7 @@
 
-import { GuildChannel, Role } from 'discord.js';
+import { Role } from '@prisma/client';
+import { GuildChannel, } from 'discord.js';
+import Discord from 'discord.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
 const command = createSubCommand('start', 'Intiate semester start command lifecycles.',
@@ -8,11 +10,11 @@ const command = createSubCommand('start', 'Intiate semester start command lifecy
         if (process.env.ENVIRONMENT === 'production') {
             const channel = await interaction.guild?.channels?.resolve('923145032754663464') as GuildChannel;
 
-            const role = await interaction.guild?.roles.resolve((await GUILD.getVerifiedRole()).id);
+            const role = await interaction.guild?.roles.resolve((await GUILD.getVerifiedRole(interaction.guildId as string, interaction.client)).id);
 
             if (channel.isText()) {
                 await channel.send({
-                    content: `${role as Role}`,
+                    content: `${role as Discord.Role}`,
                     embeds: [{
                         title: `It's that time again!`,
                         description: `Here's a semester-ly prompt to tell y'all to enroll to your new courses!`,
