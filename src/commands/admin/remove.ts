@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { GuildMember } from "discord.js";
 
 import { createSubCommand, GUILD } from "../../utilities.js";
@@ -8,7 +9,7 @@ const command = createSubCommand('remove', 'Removes an admin',
         .setRequired(true)), async interaction => {
             const targetMember = interaction.options.getMember('target_user', true) as GuildMember;
 
-            const adminId = (await GUILD.getAdminRole()).id;
+            const adminId = (await GUILD.getAdminRole(interaction.guildId as string, interaction.client)).id;
 
             // If the member is not an admin 
             if (targetMember.roles.resolve(adminId) === null)

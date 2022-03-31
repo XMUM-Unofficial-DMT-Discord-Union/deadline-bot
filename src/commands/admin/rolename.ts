@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { createSubCommand, GUILD } from "../../utilities.js";
 
 const command = createSubCommand('rolename', 'Sets the rolename of Admin',
@@ -8,7 +9,7 @@ const command = createSubCommand('rolename', 'Sets the rolename of Admin',
     async (interaction) => {
         const rolename = interaction.options.getString('name', true);
 
-        const id = (await GUILD.getAdminRole()).id;
+        const id = (await GUILD.getAdminRole(interaction.guildId as string, interaction.client)).id;
 
         await interaction.guild?.roles.resolve(id)?.setName(rolename);
 

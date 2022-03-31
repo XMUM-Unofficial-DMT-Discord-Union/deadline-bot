@@ -1,10 +1,11 @@
 import { Collection } from 'discord.js';
 import { fileURLToPath } from 'url';
 
-import { Command, CommandGroup, Permissions } from './types.js';
+import { Command, CommandGroup, ModalHandlerType, Permissions } from './types.js';
 import { directoryFiles } from './utilities.js';
 
 const BOT_COMMANDS = new Collection<string, Command | CommandGroup>();
+const MODAL_HANDLERS = new Collection<string, ModalHandlerType>();
 
 for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPath(import.meta.url), 'commands')) {
 
@@ -16,6 +17,9 @@ for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPat
         command.data.setDefaultPermission(false);
 
     BOT_COMMANDS.set(command.data.name, command);
+
+    if (command.modalHandler !== undefined)
+        MODAL_HANDLERS.set(command.modalId as string, command.modalHandler);
 }
 
-export default BOT_COMMANDS;
+export default { BOT_COMMANDS, MODAL_HANDLERS };

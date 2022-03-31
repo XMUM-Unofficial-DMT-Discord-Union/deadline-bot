@@ -70,13 +70,14 @@ export class Guild {
         return true;
     }
 
-    async createGuild({ id, adminRoleId, modRoleId, verifiedRoleId, devRoleId }:
+    async createGuild({ id, adminRoleId, modRoleId, verifiedRoleId, devRoleId, unverifiedRoleId }:
         {
             id: string;
             adminRoleId: string;
             modRoleId: string;
             verifiedRoleId: string;
             devRoleId: string;
+            unverifiedRoleId: string;
         }) {
         return await prisma.guild.create({
             data: {
@@ -94,6 +95,9 @@ export class Guild {
                     }, {
                         type: 'DEV',
                         id: devRoleId
+                    }, {
+                        type: 'UNVERIFIED',
+                        id: unverifiedRoleId
                     }]
                 }
             }
@@ -110,7 +114,7 @@ export class Guild {
         });
     }
 
-    async getAdminRole(guildId: string = process.env.GUILD_ID as string) {
+    async getAdminRole(guildId: string, client: Client) {
         const adminRole = await prisma.role.findUnique({
             where: {
                 guildId_type: {
@@ -120,8 +124,14 @@ export class Guild {
             }
         });
 
-        if (adminRole === null)
-            throw 'Admin role is not registered to database.';
+        if (adminRole === null) {
+            const role = await (await client.guilds.fetch(guildId)).roles.create({
+                hoist: true,
+                name: 'Admins'
+            });
+
+            return this.createAdminRole(guildId, role.id);
+        }
 
         return adminRole;
     }
@@ -150,7 +160,7 @@ export class Guild {
         });
     }
 
-    async getModRole(guildId: string = process.env.GUILD_ID as string) {
+    async getModRole(guildId: string, client: Client) {
         const modRole = await prisma.role.findFirst({
             where: {
                 guildId: guildId,
@@ -158,8 +168,14 @@ export class Guild {
             }
         });
 
-        if (modRole === null)
-            throw 'Mod role is not registered to database.';
+        if (modRole === null) {
+            const role = await (await client.guilds.fetch(guildId)).roles.create({
+                hoist: true,
+                name: 'Mods'
+            });
+
+            return this.createModRole(guildId, role.id);
+        }
 
         return modRole;
     }
@@ -188,7 +204,7 @@ export class Guild {
         });
     }
 
-    async getVerifiedRole(guildId: string = process.env.GUILD_ID as string) {
+    async getVerifiedRole(guildId: string, client: Client) {
         const verifiedRole = await prisma.role.findFirst({
             where: {
                 guildId: guildId,
@@ -196,8 +212,14 @@ export class Guild {
             }
         });
 
-        if (verifiedRole === null)
-            throw 'Verified role is not registered to database.';
+        if (verifiedRole === null) {
+            const role = await (await client.guilds.fetch(guildId)).roles.create({
+                hoist: true,
+                name: 'Verified'
+            });
+
+            return this.createVerifiedRole(guildId, role.id);
+        }
 
         return verifiedRole;
     }
@@ -226,23 +248,75 @@ export class Guild {
         });
     }
 
-    async getDevRole(guildId: string = process.env.GUILD_ID as string) {
-        const verifiedRole = await prisma.role.findFirst({
+    async getDevRole(guildId: string, client: Client) {
+        const devRole = await prisma.role.findFirst({
             where: {
                 guildId: guildId,
                 type: 'DEV'
             }
         });
 
-        if (verifiedRole === null)
-            throw 'Dev role is not registered to database.';
+        if (devRole === null) {
+            const role = await (await client.guilds.fetch(guildId)).roles.create({
+                hoist: true,
+                name: 'Devs'
+            });
 
-        return verifiedRole;
+            return this.createDevRole(guildId, role.id);
+        }
+
+        return devRole;
     }
 
     async updateDevRoleId(role: Role, id: string) {
         if (role.type !== 'DEV')
             throw 'The given role is not a Dev role.';
+
+        await prisma.role.update({
+            where: {
+                id: role.id
+            },
+            data: {
+                id: id
+            }
+        });
+    }
+
+    async createUnverifiedRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'UNVERIFIED',
+                id: roleId,
+                guildId: guildId
+            }
+        });
+    }
+
+    async getUnverifiedRole(guildId: string, client: Client) {
+        let unverifiedRole = await prisma.role.findUnique({
+            where: {
+                guildId_type: {
+                    guildId: guildId,
+                    type: 'UNVERIFIED'
+                }
+            }
+        });
+
+        if (unverifiedRole === null) {
+            const role = await (await client.guilds.fetch(guildId)).roles.create({
+                hoist: true,
+                name: 'Unverified'
+            });
+
+            return this.createUnverifiedRole(guildId, role.id);
+        }
+
+        return unverifiedRole;
+    }
+
+    async updateUnverifiedRoleId(role: Role, id: string) {
+        if (role.type !== 'UNVERIFIED')
+            throw 'The given role is not an Unverified role.';
 
         await prisma.role.update({
             where: {
@@ -486,11 +560,45 @@ export class Guild {
     async addUnverifiedStudent(fields: SelectivePartial<Student, 'remindTime'> & { guildId: string; }) {
         const { guildId, ...studentFields } = fields;
 
+        const student = prisma.student.findUnique({
+            where: {
+                discordId: studentFields.discordId
+            }
+        });
+
+        if (student !== undefined) {
+            await prisma.student.update({
+                where: {
+                    discordId: studentFields.discordId
+                },
+                data: {
+                    guilds: {
+                        connectOrCreate: {
+                            where: {
+                                id: guildId
+                            },
+                            create: {
+                                id: guildId
+                            }
+                        }
+                    },
+                    studentsToRoles: {
+                        create: {
+                            guildId: guildId,
+                            roleType: 'UNVERIFIED'
+                        }
+                    }
+                }
+            });
+
+            return true;
+        }
+
         await prisma.student.create({
             data: {
                 ...studentFields,
                 guilds: {
-                    connect: {
+                    create: {
                         id: guildId
                     }
                 },

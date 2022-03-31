@@ -9,9 +9,9 @@ const command = createSubCommand('add', 'Adds an admin',
     , async (interaction) => {
         const targetMember = interaction.options.getMember('target_user', true) as GuildMember;
 
-        const modId = (await GUILD.getModRole()).id;
-        const adminId = (await GUILD.getAdminRole()).id;
-        const verifiedId = (await GUILD.getVerifiedRole()).id;
+        const modId = (await GUILD.getModRole(interaction.guildId as string, interaction.client)).id;
+        const adminId = (await GUILD.getAdminRole(interaction.guildId as string, interaction.client)).id;
+        const verifiedId = (await GUILD.getVerifiedRole(interaction.guildId as string, interaction.client)).id;
 
         // If the member is not verified
         if (targetMember.roles.resolve(verifiedId) === null)

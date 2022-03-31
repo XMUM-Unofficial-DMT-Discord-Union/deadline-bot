@@ -1,12 +1,13 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
 import Prisma from '@prisma/client';
 import { CacheType, Collection, CommandInteraction } from 'discord.js';
+import { ModalSubmitInteraction } from 'discord-modals';
 
 import fs from 'fs';
 import path from 'path';
 import { Guild } from './models/guild.js';
 
-import { Command, CommandGroup, Permissions, SubCommand, SubCommandGroup } from './types.js';
+import { Command, CommandGroup, ModalHandlerType, Permissions, SubCommand, SubCommandGroup } from './types.js';
 
 /**
  * Given a filename and a directory, returns an iterator allowing module iteration
@@ -29,14 +30,24 @@ export function* directoryFiles<T>(filename: string, directory: string) {
  */
 export function createCommand(name: string, description: string, permission: Permissions,
     subcommandBuilderCallback: (builder: SlashCommandBuilder) => SlashCommandBuilder,
-    interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any>): Command {
-    return {
+    interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): Command {
+    let command = {
         data: subcommandBuilderCallback(new SlashCommandBuilder()
             .setName(name)
             .setDescription(description)),
         permission: permission,
-        execute: interactionCallback
+        execute: interactionCallback,
+        modalId: name
     };
+
+    if (modalHandler !== undefined)
+        Object.defineProperty(command, "modalHandler",
+            {
+                value: async (modal: ModalSubmitInteraction, _: string) => modalHandler(modal),
+                writable: true
+            });
+
+    return command;
 }
 
 /**
@@ -48,12 +59,13 @@ export function createCommand(name: string, description: string, permission: Per
  * @returns A well-defined object associated with this command type, with an empty `subcommands` collection
  */
 export async function createCommandGroup(name: string, description: string, permission: Permissions, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<CommandGroup> {
-    const command = {
+    let command = {
         data: new SlashCommandBuilder()
             .setName(name)
             .setDescription(description),
         permission: permission,
         subcommands: new Collection<string, SubCommandGroup | SubCommand>(),
+        subHandlers: new Collection<string, ModalHandlerType>(),
         execute: async (interaction: CommandInteraction<CacheType>) => {
             interactionCallback(interaction);
 
@@ -65,7 +77,8 @@ export async function createCommandGroup(name: string, description: string, perm
                 command.subcommands.get(interaction.options.getSubcommandGroup() as string)?.execute(interaction);
             else
                 await interaction.reply({ content: 'It seems that you\'ve entered an invalid command.\n Please try again.', ephemeral: true });
-        }
+        },
+        modalId: name
     };
 
     for (const subcommandPromise of directoryFiles<SubCommandGroup | SubCommand>(filename, name)) {
@@ -73,6 +86,27 @@ export async function createCommandGroup(name: string, description: string, perm
         subcommand.bindTo(command);
         command.subcommands?.set(subcommand.data.name, subcommand);
     }
+
+    Object.defineProperty(command, "modalHandler",
+        {
+            value: async (modal: ModalSubmitInteraction, partitionId: string) => {
+                let categorySeparatorIndex = partitionId.indexOf(' ');
+                let nextHandlerId = modal.customId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex - 1);
+                let subPartitionId = categorySeparatorIndex === -1 ? modal.customId : modal.customId.substring(categorySeparatorIndex + 1);
+
+                if (categorySeparatorIndex === -1)
+                    throw `In Command Group '${name}'. The modal with id '${modal.customId}' does not have an appropriate handler.`;
+
+                let handler = command.subcommands.get(nextHandlerId);
+
+                if (handler === undefined || handler.modalHandler === undefined)
+                    throw `In Command Group '${name}'. The modal with id '${modal.customId}' does not match with any subcommands/subcommand groups within the group.`;
+
+                // It's now confirmed that there's a subcommand handler
+                await handler.modalHandler(modal, subPartitionId);
+            },
+            writable: true
+        });
 
     return command;
 }
@@ -86,7 +120,7 @@ export async function createCommandGroup(name: string, description: string, perm
  * @returns A well-defined object associated with this command type
  */
 export async function createSubCommandGroup(name: string, description: string, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<SubCommandGroup> {
-    const command = {
+    let command = {
         data: new SlashCommandSubcommandGroupBuilder()
             .setName(name)
             .setDescription(description),
@@ -94,6 +128,7 @@ export async function createSubCommandGroup(name: string, description: string, f
             parentCommand.data.addSubcommandGroup(command.data);
         },
         subcommands: new Collection<string, SubCommand>(),
+        subHandlers: new Collection<string, ModalHandlerType>(),
         execute: async (interaction: CommandInteraction<CacheType>) => {
             interactionCallback(interaction);
 
@@ -103,7 +138,7 @@ export async function createSubCommandGroup(name: string, description: string, f
                 await interaction.reply({ content: 'It seems that you\'ve entered an invalid command.\n Please try again.', ephemeral: true });
             else
                 command.subcommands.get(subcommand)?.execute(interaction);
-        }
+        },
     };
 
     for (const subcommandPromise of directoryFiles<SubCommand>(filename, name)) {
@@ -112,8 +147,28 @@ export async function createSubCommandGroup(name: string, description: string, f
         command.subcommands?.set(subcommand.data.name, subcommand);
     }
 
-    return command;
+    Object.defineProperty(command, "modalHandler",
+        {
+            value: async (modal: ModalSubmitInteraction, partitionId: string) => {
+                let categorySeparatorIndex = partitionId.indexOf(' ');
+                let nextHandlerId = modal.customId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex - 1);
+                let subPartitionId = categorySeparatorIndex === -1 ? modal.customId : modal.customId.substring(categorySeparatorIndex + 1);
 
+                if (categorySeparatorIndex === -1)
+                    throw `In Subcommand Group '${name}'. The modal with id '${modal.customId}' does not have an appropriate handler.`;
+
+                let handler = command.subcommands.get(nextHandlerId);
+
+                if (handler === undefined || handler.modalHandler === undefined)
+                    throw `In Subcommand Group '${name}'. The modal with id '${modal.customId}' does not match with any subcommands within the group.`;
+
+                // It's now confirmed that there's a subcommand handler
+                await handler.modalHandler(modal, subPartitionId);
+            },
+            writable: true
+        });
+
+    return command;
 }
 
 /**
@@ -125,7 +180,7 @@ export async function createSubCommandGroup(name: string, description: string, f
  */
 export function createSubCommand(name: string, description: string,
     subcommandBuilderCallback: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder,
-    interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any>): SubCommand {
+    interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): SubCommand {
     const command = {
         data: subcommandBuilderCallback(new SlashCommandSubcommandBuilder()
             .setName(name)
@@ -133,8 +188,16 @@ export function createSubCommand(name: string, description: string,
         bindTo: (parentCommand: CommandGroup | SubCommandGroup) => {
             parentCommand.data.addSubcommand(command.data);
         },
-        execute: interactionCallback
+        execute: interactionCallback,
     };
+
+    if (modalHandler !== undefined)
+        Object.defineProperty(command, "modalHandler",
+            {
+                value: async (modal: ModalSubmitInteraction, _: string) => modalHandler(modal),
+                writable: true
+            });
+
     return command;
 }
 

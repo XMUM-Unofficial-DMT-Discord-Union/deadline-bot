@@ -1,6 +1,6 @@
 import { CacheType, CommandInteraction, Interaction } from "discord.js";
 
-import BOT_COMMANDS from "../commands.js";
+import Commands from "../commands.js";
 
 export default {
     once: false,
@@ -9,7 +9,7 @@ export default {
         // TODO: Add Error Response
         if (!(interaction.isCommand() || interaction.isAutocomplete())) return;
 
-        const command = BOT_COMMANDS.get(interaction.commandName);
+        const command = Commands.BOT_COMMANDS.get(interaction.commandName);
 
         // TODO: Add Error Response
         if (!command) return;
