@@ -211,7 +211,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
     })
         .on('collect', async componentInteraction => {
             if (componentInteraction.customId === 'course') {
-                const course = (await GUILD.getCourse(componentInteraction.values[0]));
+                const course = (await GUILD.getCourse(componentInteraction.values[0], { deadlines: true }));
 
                 if (course === undefined) {
                     await interaction.editReply({ content: 'Looks like someone tampered with this course while you\'re choosing. Please try again.' });

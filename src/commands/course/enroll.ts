@@ -26,7 +26,7 @@ const command = createSubCommand('enroll', 'Enroll into a course',
 
         const courseName = interaction.options.getString('course', true);
 
-        const course = await GUILD.getCourse(courseName);
+        const course = await GUILD.getCourse(courseName, undefined);
 
         if (course === undefined) {
             await interaction.reply({ content: `Sorry, there was a problem finding the given course. It probably didn't exist in the database.\nPlease inform the developers about this problem.`, ephemeral: true });

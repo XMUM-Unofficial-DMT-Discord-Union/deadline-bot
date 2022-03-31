@@ -199,7 +199,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
     })
         .on('collect', async componentInteraction => {
             if (componentInteraction.customId === 'course') {
-                response.course = await GUILD.getCourse(componentInteraction.values[0]) as unknown as Course;
+                response.course = await GUILD.getCourse(componentInteraction.values[0], undefined);
 
                 await componentInteraction.update({
                     ...deadlineReplyOptions(response.course)

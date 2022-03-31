@@ -7,7 +7,7 @@ const command = createSubCommand('add', 'Adds a course',
     async interaction => {
         const name = interaction.options.getString('name', true);
 
-        const course = await GUILD.getCourse(name);
+        const course = await GUILD.getCourse(name, undefined);
 
         if (course !== undefined) {
             await interaction.reply({ content: `'${name}' has already existed!`, ephemeral: true });

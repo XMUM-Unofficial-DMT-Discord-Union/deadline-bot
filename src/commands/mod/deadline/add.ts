@@ -190,7 +190,7 @@ async function chooseCourseLifecycle(interaction: CommandInteraction) {
         idle: 30000
     })
         .on('collect', async componentInteraction => {
-            response.course = await GUILD.getCourse(componentInteraction.values[0]) as unknown as Course;
+            response.course = await GUILD.getCourse(componentInteraction.values[0], undefined);
 
             await componentInteraction.update({ components: [] });
             collector.stop();

@@ -263,7 +263,7 @@ export class Guild {
         });
     }
 
-    async getCourse(name: string, include?: Prisma.CourseInclude) {
+    async getCourse<T extends (Prisma.CourseInclude | undefined)>(name: string, include: T) {
         const course = await prisma.course.findUnique({
             where: {
                 name: name

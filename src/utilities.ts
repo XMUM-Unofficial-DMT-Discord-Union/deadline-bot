@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
 import Prisma from '@prisma/client';
 import { CacheType, Collection, CommandInteraction } from 'discord.js';
-import 'firebase/firestore';
 
 import fs from 'fs';
 import path from 'path';
