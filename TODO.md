@@ -1,5 +1,13 @@
 # TODO
 
+ - Use Prisma to handle database integration
+ - Upon setting up PostgreSQL on VM, set time zone to 'Asia/Kuala_Lumpur'.
+ - Use `Paranoid` tables for tracking messages.
+ - One-to-One Relationship between a Student and a Verification form
+ - Many-to-Many Relationship between Student and Course
+ - To move whole database to another server, do [pg_dumpall](https://www.postgresql.org/docs/12/app-pg-dumpall.html)
+ - Modify server to follow these [rules](https://www.prisma.io/docs/concepts/components/prisma-migrate#production-and-testing-environments)
+
 /admin (subcommand)
  * mod
    * add

@@ -10,23 +10,23 @@ type Response = {
     datetime: Date,
     description: string,
     url: string,
-    excluded: Array<string>
-}
+    excluded: Array<string>;
+};
 
 type CallbackReturn = [Response, boolean];
 
 const yesButton = new MessageButton()
     .setCustomId('yes')
     .setLabel('Yes')
-    .setStyle('PRIMARY')
+    .setStyle('PRIMARY');
 
 const noButton = new MessageButton()
     .setCustomId('no')
     .setLabel('no')
-    .setStyle('PRIMARY')
+    .setStyle('PRIMARY');
 
 const ID_STATES: {
-    [discordId: string]: number
+    [discordId: string]: number;
 } = {};
 
 const callbacks = [
@@ -48,7 +48,7 @@ const callbacks = [
     async (interaction: CommandInteraction, message: Message | undefined, response: Response, deadline: Deadline, course: Course, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
         if (message !== undefined) {
             dayjs.extend(customParseFormat);
-            const parsed = dayjs(message.content, 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true)
+            const parsed = dayjs(message.content, 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true);
             await message.delete();
 
             if (!parsed.isValid() || parsed.isBefore(dayjs()))
@@ -99,8 +99,7 @@ const callbacks = [
                     collector.stop();
                     await componentInteraction.update({ components: [] });
 
-                    GUILD.editDeadlineFromCourse(course.name, deadline, response);
-                    await GUILD.save();
+                    await GUILD.editDeadlineFromCourse(course.name, deadline, response);
 
                     await interaction.editReply({
                         embeds: [{
@@ -117,8 +116,8 @@ const callbacks = [
                 await interaction.editReply({
                     components: [new MessageActionRow()
                         .setComponents(disabled)]
-                })
-            })
+                });
+            });
 
         return [response, true];
 
@@ -132,7 +131,7 @@ function courseReplyOptions() {
         components: [new MessageActionRow()
             .addComponents((() => {
                 const menu = new MessageSelectMenu()
-                    .setCustomId('course')
+                    .setCustomId('course');
 
                 let hasValues = false;
                 for (let course of Object.values(GUILD.getAllCourses())) {
@@ -144,15 +143,15 @@ function courseReplyOptions() {
                     menu.addOptions({
                         label: course.name,
                         value: course.name
-                    })
+                    });
                 }
 
                 if (!hasValues)
-                    throw 'No deadlines.'
+                    throw 'No deadlines.';
 
                 return menu;
             })())]
-    }
+    };
 }
 
 function deadlineReplyOptions(course: Course) {
@@ -168,12 +167,12 @@ function deadlineReplyOptions(course: Course) {
                     menu.addOptions({
                         label: deadline.name,
                         value: deadline.name
-                    })
+                    });
                 }
 
                 return menu;
             })())]
-    }
+    };
 }
 
 async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
@@ -184,7 +183,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
     }
     catch (error) {
         await interaction.reply({ content: `It seems like there aren't any deadlines...`, ephemeral: true });
-        return Promise.reject('No deadlines');
+        throw 'No deadlines';
     }
     // If the above does not throw an error, there's deadlines available to delete
 
@@ -200,11 +199,11 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
     })
         .on('collect', async componentInteraction => {
             if (componentInteraction.customId === 'course') {
-                response.course = GUILD.getCourse(componentInteraction.values[0]) as Course;
+                response.course = await GUILD.getCourse(componentInteraction.values[0]) as unknown as Course;
 
                 await componentInteraction.update({
                     ...deadlineReplyOptions(response.course)
-                })
+                });
             }
             else if (componentInteraction.customId === 'choose_deadline') {
                 response.deadline = response.course.deadlines.find((deadline: any) => deadline.name === componentInteraction.values[0]);
@@ -216,7 +215,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
         })
         .on('end', async () => {
             await extendDeadlineLifecycle(interaction, reply, response.course, response.deadline);
-        })
+        });
 }
 
 async function extendDeadlineLifecycle(interaction: CommandInteraction, message: Message, course: Course, deadline: Deadline) {
@@ -227,7 +226,7 @@ async function extendDeadlineLifecycle(interaction: CommandInteraction, message:
         description: deadline.description,
         url: deadline.url,
         excluded: deadline.excluded
-    }
+    };
     let isSuccess = true;
 
     await interaction.editReply({
@@ -254,7 +253,7 @@ async function extendDeadlineLifecycle(interaction: CommandInteraction, message:
                 ID_STATES[interaction.user.id] -= 1;
                 await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
             }
-        })
+        });
 
 }
 

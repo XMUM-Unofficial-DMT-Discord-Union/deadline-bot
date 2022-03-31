@@ -1,6 +1,6 @@
 import { AutocompleteInteraction } from 'discord.js';
 
-import { createSubCommand, GUILD } from '../../../utilities.js';
+import { createSubCommand, GUILD, prisma } from '../../../utilities.js';
 
 const command = createSubCommand('remove', 'Removes a course',
     builder => builder.addStringOption(option => option.setName('course')
@@ -10,16 +10,27 @@ const command = createSubCommand('remove', 'Removes a course',
     async interaction => {
         if (interaction.isAutocomplete()) {
             await (interaction as AutocompleteInteraction)
-                .respond(Object.keys(GUILD.getAllCourses()).map(courseName => { return { name: courseName, value: courseName }; }));
+                .respond((await GUILD.getAllCourses()).map(course => { return { name: course.name, value: course.name }; }));
             return;
         }
 
         const courseName = interaction.options.getString('course', true);
 
-        if (!GUILD.deleteCourse(courseName))
+        const course = await prisma.course.findUnique({
+            where: {
+                name: courseName
+            }
+        });
+
+        if (course === null)
             await interaction.reply({ content: `something went wrong when trying to delete '${courseName}'. Please try again.`, ephemeral: true });
         else {
-            await GUILD.save();
+
+            await prisma.course.delete({
+                where: {
+                    name: courseName
+                }
+            });
             await interaction.reply({ content: `Successfully deleted '${courseName}'!`, ephemeral: true });
         }
     });

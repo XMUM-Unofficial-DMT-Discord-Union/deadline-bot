@@ -8,11 +8,11 @@ const command = createSubCommand('rolename', 'Sets the rolename of Admin',
     async (interaction) => {
         const rolename = interaction.options.getString('name', true);
 
-        const id = GUILD.getAdminRoleDetails().id;
+        const id = (await GUILD.getAdminRole()).id;
 
         await interaction.guild?.roles.resolve(id)?.setName(rolename);
 
-        await interaction.reply({ content: `The admin role name has been set successfully!`, ephemeral: true })
-    })
+        await interaction.reply({ content: `The admin role name has been set successfully!`, ephemeral: true });
+    });
 
 export default command;

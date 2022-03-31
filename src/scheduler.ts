@@ -1,12 +1,14 @@
+import { Deadline, Student } from '@prisma/client';
+import dayjs from 'dayjs';
 import { Client, TextChannel } from 'discord.js';
+import ms from 'ms';
+import { StringValue } from 'ms';
 import scheduler, { Job } from 'node-schedule';
 
-import { Deadline } from './models/course.js';
-import { Student } from './models/student.js';
-import { GUILD } from './utilities.js';
+import { GUILD, prisma } from './utilities.js';
 
 const JOBS: {
-    [jobName: string]: Job
+    [jobName: string]: Job;
 } = {};
 
 /**
@@ -15,68 +17,51 @@ const JOBS: {
 export async function initializeScheduler(client: Client) {
     console.log('\nInitializing scheduler...');
 
-    // Get all courses
-    const courses = GUILD.getAllCourses();
+    console.log('Checking and removing any past deadlines...');
 
-    console.log('Courses fetched');
-
-    let toBeReplacedDeadlines: { [courseName: string]: number[] } = {};
-
-    for (let course of Object.values(courses)) {
-
-        for (let index = 0; index < course.deadlines.length; index++) {
-            let deadline = course.deadlines[index];
-
-            console.log(`On ${course.name}: ${deadline.name} with deadline of ${deadline.datetime}`);
-
-            // First we schedule the original deadline
-            let result = scheduleDeadline(client, course.name, deadline);
-
-            if (result === null) {
-                console.warn(`${course.name}: ${deadline.name}, Scheduling failed. This is due to the deadline is either in the past or invalid.`);
-
-                if (!(course.name in toBeReplacedDeadlines))
-                    toBeReplacedDeadlines[course.name] = [];
-
-                toBeReplacedDeadlines[course.name].push(index);
-                continue;
-            }
-
-            // In one course, there could be 0 to many students
-            for (let studentId of course.students) {
-
-                // Check whether this student is present in the docs
-                const student = await Student.get(studentId);
-
-                if (student === undefined)
-                    continue;
-
-                // Check whether this student has already disabled deadline reminders
-                if (course.deadlines[index].excluded.includes(studentId))
-                    continue;
-
-                // This student still has reminders on: create reminders
-                // Here we don't check for invalid reminders as it won't exist in database
-                scheduleReminders(client, course.name, deadline, student);
+    // Delete deadlines that were passed while offline
+    await prisma.deadline.deleteMany({
+        where: {
+            datetime: {
+                lte: dayjs().toISOString()
             }
         }
-    }
+    });
 
-    let hasInvalidDeadlines = false;
-    for (let [courseName, excludedDeadlineIndices] of Object.entries(toBeReplacedDeadlines)) {
-        hasInvalidDeadlines = true;
-        let course = courses[courseName];
+    console.log('Deadlines successfully removed!');
 
-        console.log('Removing invalid deadlines...');
-        // Remove these deadlines
-        course.deadlines = course.deadlines.filter((_, index) => !excludedDeadlineIndices.includes(index));
+    // Retrieve all courses that have deadlines
+    const deadlines = (await prisma.deadline.findMany({
+        include: {
+            course: {
+                include: {
+                    students: true
+                }
+            },
+            excludedStudents: true
+        }
+    })).sort((left, right) => left.datetime.getTime() - right.datetime.getTime());
 
-        GUILD.updateCourse(course);
-    }
+    for (let deadline of deadlines) {
 
-    if (hasInvalidDeadlines) {
-        await GUILD.save();
-        console.log('Deadlines successfully removed!');
+        let course = deadline.course;
+
+        console.log(`On ${course.name}: ${deadline.name} with deadline of ${deadline.datetime}`);
+
+        // First we schedule the original deadline
+        scheduleDeadline(client, course.name, deadline);
+
+        // Iterate through students in the course for personalized reminders
+        for (let student of course.students) {
+
+            // Check whether this student has already disabled deadline reminders
+            if (deadline.excludedStudents.includes(student))
+                continue;
+
+            // This student still has reminders on: create reminders
+            // Here we don't check for invalid reminders as it won't exist in database
+            scheduleReminders(client, course.name, deadline, student);
+        }
     }
 
     console.log('Finished scheduling.');
@@ -86,6 +71,7 @@ export function scheduleDeadline(client: Client, courseName: string, deadline: D
     // This is the default deadline
     let result = scheduler.scheduleJob(`${courseName}: ${deadline.name}`, deadline.datetime, async () => {
         // For in production, bot will auto send to "deadlines-and-alerts"
+        // TODO: Make this dynamic and configurable
         if (process.env.ENVIRONMENT === 'production') {
             await client.channels.fetch('923137246914310154').then(async channel => {
                 if (channel !== null) {
@@ -101,32 +87,18 @@ export function scheduleDeadline(client: Client, courseName: string, deadline: D
                                 text: `Sent on ${new Date().toLocaleString()} with ❤️`
                             }
                         }]
-                    })
+                    });
                 }
-            })
+            });
         }
 
-        if (!scheduler.cancelJob(`${courseName}: ${deadline.name}`)) {
-            console.warn(`Warning: job named '${courseName}: ${deadline.name}' cannot be cancelled.`);
-        } else {
-            // Safely remove the deadline off from firestore
-            // Get the corresponding course
-            const course = GUILD.getCourse(courseName);
-
-            if (course === undefined) {
-                // For some reason, the given course does not exist in database
-                console.warn(`Warning: Course named '${courseName}' does not exist in database.`);
-            }
-            else {
-                // Filter out the deadline
-                course.deadlines = course.deadlines.filter(value => value.name !== deadline.name);
-
-                // Write to guild
-                GUILD.updateCourse(course);
-
-                // Write to database
-                await GUILD.save();
-            }
+        if (cancelDeadline(courseName, deadline.name)) {
+            // Safely remove the deadline off from database 
+            await prisma.deadline.delete({
+                where: {
+                    id: deadline.id
+                },
+            });
         }
     });
 
@@ -138,11 +110,11 @@ export function scheduleDeadline(client: Client, courseName: string, deadline: D
 
 export function scheduleReminders(client: Client, courseName: string, deadline: Deadline, student: Student) {
 
-    const studentReminderTime = new Date(deadline.datetime.valueOf() - student._remindTime);
-    let result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime, async () => {
+    const studentReminderTime = new Date(deadline.datetime.valueOf() - ms(student.remindTime as StringValue));
+    let result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student.id}`, studentReminderTime, async () => {
 
         // Reminders are sent to user's DMs
-        await client.users.fetch(student._id).then(async user => {
+        await client.users.fetch(student.id).then(async user => {
             await user.send({
                 embeds: [{
                     title: 'Your very own deadline reminder!',
@@ -160,11 +132,11 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
                         text: `Sent on ${new Date().toLocaleString()} with ❤️`
                     }
                 }]
-            })
-        })
+            });
+        });
 
-        if (!scheduler.cancelJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`)) {
-            console.warn(`Warning: job named '${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}' cannot be cancelled.`);
+        if (!scheduler.cancelJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student.id}`)) {
+            console.warn(`Warning: job named '${courseName}: ${deadline.name} - User-Defined Reminder of ${student.id}' cannot be cancelled.`);
         }
     });
 
@@ -173,10 +145,10 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
     // System Reminder
     const systemReminderTime = deadline.datetime;
     systemReminderTime.setHours(deadline.datetime.getHours() - 1);
-    result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime, async () => {
+    result = scheduler.scheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student.id}`, systemReminderTime, async () => {
 
         // Reminders are sent to user's DMs
-        await client.users.fetch(student._discordId).then(async user => {
+        await client.users.fetch(student.discordId).then(async user => {
             await user.send({
                 embeds: [{
                     title: 'Deadline is in a few inches away!',
@@ -194,11 +166,11 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
                         text: `Sent on ${new Date().toLocaleString()} with ❤️`
                     }
                 }]
-            })
-        })
+            });
+        });
 
-        if (!scheduler.cancelJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`)) {
-            console.warn(`Warning: job named '${courseName}: ${deadline.name} - System Reminder to ${student._id}' cannot be cancelled.`);
+        if (!scheduler.cancelJob(`${courseName}: ${deadline.name} - System Reminder to ${student.id}`)) {
+            console.warn(`Warning: job named '${courseName}: ${deadline.name} - System Reminder to ${student.id}' cannot be cancelled.`);
         }
     });
 
@@ -208,8 +180,12 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
 export function cancelDeadline(courseName: string, deadlineName: string) {
     let result = scheduler.cancelJob(JOBS[`${courseName}: ${deadlineName}`]);
 
-    if (result)
+    if (result) {
         delete JOBS[`${courseName}: ${deadlineName}`];
+        return true;
+    }
+    console.warn(`Warning: job named '${courseName}: ${deadlineName}' cannot be cancelled.`);
+    return false;
 }
 
 export function cancelReminders(courseName: string, deadlineName: string, studentId: string) {
@@ -220,7 +196,7 @@ export function cancelReminders(courseName: string, deadlineName: string, studen
     jobStrings.pop();
 
     jobStrings.forEach(job => {
-        let result = scheduler.cancelJob(JOBS[job])
+        let result = scheduler.cancelJob(JOBS[job]);
 
         if (result)
             delete JOBS[job];
@@ -238,15 +214,15 @@ export function rescheduleDeadline(courseName: string, deadline: Deadline) {
 
 export function rescheduleReminders(courseName: string, deadline: Deadline, student: Student) {
 
-    const studentReminderTime = new Date(deadline.datetime.valueOf() - student._remindTime);
-    let result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student._id}`, studentReminderTime);
+    const studentReminderTime = new Date(deadline.datetime.valueOf() - ms(student.remindTime as StringValue));
+    let result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - User-Defined Reminder of ${student.id}`, studentReminderTime);
 
     JOBS[result.name] = result;
 
     // System Reminder
     const systemReminderTime = deadline.datetime;
     systemReminderTime.setHours(deadline.datetime.getHours() - 1);
-    result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student._id}`, systemReminderTime);
+    result = scheduler.rescheduleJob(`${courseName}: ${deadline.name} - System Reminder to ${student.id}`, systemReminderTime);
 
     JOBS[result.name] = result;
 }

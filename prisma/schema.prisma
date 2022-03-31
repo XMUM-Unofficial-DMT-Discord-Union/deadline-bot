@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Application {
+  id        Int             @id @default(autoincrement())
+  type      ApplicationType
+  discordId String
+  name      String
+  reason    String          @db.Text
+
+  guild   Guild  @relation(fields: [guildId], references: [id])
+  guildId String
+}
+
+// TODO: Convert to utilise Postgres table inheritance
+model Suggestion {
+  id       Int            @id @default(autoincrement())
+  type     SuggestionType
+  reason   String         @db.Text
+  name     String
+  datetime DateTime?      @default(now()) @db.Timestamptz()
+  location String?
+
+  guild   Guild  @relation(fields: [guildId], references: [id])
+  guildId String
+}
+
+model Report {
+  id                Int        @id @default(autoincrement())
+  type              ReportType
+  reporterDiscordId String
+  reportedDiscordId String
+  datetime          DateTime   @db.Timestamptz()
+  reason            String     @db.Text
+
+  guild   Guild  @relation(fields: [guildId], references: [id])
+  guildId String
+}
+
+model Guild {
+  /// The associated UUID retrieved from Discord
+  id       String    @id @unique
+  role     Role[]
+  students Student[]
+
+  applications Application[]
+  suggestions  Suggestion[]
+  reports      Report[]
+}
+
+model Deadline {
+  id               Int       @id @default(autoincrement())
+  name             String
+  description      String?
+  url              String?
+  datetime         DateTime  @db.Timestamptz()
+  excludedStudents Student[]
+  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId         Int
+}
+
+// TODO: Figure out either use Global Course or Local Course (Guild-specific Course)
+model Course {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  deadlines Deadline[]
+  students  Student[]
+}
+
+model studentsToRoles {
+  id               Int      @id @default(autoincrement())
+  studentDiscordId String
+  roleType         RoleType
+  guildId          String
+
+  student Student @relation(fields: [studentDiscordId], references: [discordId], onDelete: Cascade)
+  role    Role    @relation(fields: [guildId, roleType], references: [guildId, type], onDelete: Cascade)
+}
+
+model Student {
+  discordId         String            @id @unique
+  id                String            @unique
+  name              String
+  enrolledBatch     String /// A 4-digit string representing the year and month of intake
+  remindTime        String            @default("1 Week") /// Use `ms` module to get miliseconds from human-readable duration format
+  deadlinesExcluded Deadline[]
+  courses           Course[]
+  guilds            Guild[]
+  studentsToRoles   studentsToRoles[]
+}
+
+model Role {
+  id      String   @unique /// The corresponding 
+  type    RoleType
+  guild   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guildId String
+
+  studentsToRoles studentsToRoles[]
+  @@id([guildId, type])
+}
+
+enum ApplicationType {
+  ADMIN
+  MOD
+  DEV
+}
+
+enum ReportType {
+  ADMIN
+  MOD
+  DEV
+}
+
+enum SuggestionType {
+  CHANNEL
+  EVENT
+}
+
+/// Each subsequent role represents a higher command privilege
+enum RoleType {
+  UNVERIFIED
+  VERIFIED
+  MOD
+  ADMIN
+  DEV
+}

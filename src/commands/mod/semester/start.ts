@@ -8,7 +8,7 @@ const command = createSubCommand('start', 'Intiate semester start command lifecy
         if (process.env.ENVIRONMENT === 'production') {
             const channel = await interaction.guild?.channels?.resolve('923145032754663464') as GuildChannel;
 
-            const role = await interaction.guild?.roles.resolve(GUILD.getVerifiedRoleDetails().id);
+            const role = await interaction.guild?.roles.resolve((await GUILD.getVerifiedRole()).id);
 
             if (channel.isText()) {
                 await channel.send({

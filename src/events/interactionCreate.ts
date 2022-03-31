@@ -21,7 +21,7 @@ export default {
             // TODO: Add Error Response
             console.error(error);
 
-            await (interaction as CommandInteraction).reply({ content: `There was an error while executing this command!`, ephemeral: true });
+            await (interaction as CommandInteraction).reply({ content: `There was an error while executing this command!\nReason: ${error}`, ephemeral: true });
         }
     }
-}
+};

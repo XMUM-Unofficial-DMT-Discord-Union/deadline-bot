@@ -1,422 +1,531 @@
-import Big from 'big.js';
 import { Client } from 'discord.js';
 import dayjs from 'dayjs';
-import { collection, CollectionReference, doc, DocumentData, DocumentReference, FirestoreDataConverter, getDoc, getDocs, QueryDocumentSnapshot, writeBatch, WriteBatch } from 'firebase/firestore';
 
-import { firestoreApp } from '../database.js';
 import { cancelDeadline, cancelReminders, rescheduleDeadline, rescheduleReminders, scheduleDeadline, scheduleReminders } from '../scheduler.js';
-import { Course, Deadline } from './course.js';
-import { Student } from './student.js';
+import { Course } from './course.js';
 
-type WriteCallback = () => void;
+import { prisma } from '../utilities.js';
+import { Application, Deadline, Prisma, Report, Role, Student, studentsToRoles, Suggestion } from '@prisma/client';
 
-type ChannelSuggestion = {
-    type: 'channel',
-    name: string
-}
-type EventSuggestion = {
-    type: 'event',
-    name: string,
-    datetime: Date,
-    location: string
-}
-type Suggestion = {
-    userDiscordId: string,
-    reason: string
-} & (ChannelSuggestion | EventSuggestion);
-
-type AdminReport = {
-    type: 'admin'
-}
-type ModReport = {
-    type: 'mod'
-}
-type DevReport = {
-    type: 'dev'
-}
-type Report = {
-    discordId: string,
-    datetime: Date,
-    reason: string
-} & (AdminReport | ModReport | DevReport);
-
-type AdminApplication = {
-    type: 'admin'
-};
-type ModApplication = {
-    type: 'mod'
-};
-type DevApplication = {
-    type: 'dev'
+export type EventSuggestion = Suggestion & {
+    location: string;
 };
 
-export type Application = {
-    discordId: string,
-    name: string,
-    reason: string
-} & (AdminApplication | ModApplication | DevApplication)
+export type ChannelSuggestion = Omit<Suggestion, 'location'>;
+
+type AdminReport = Report & {
+    type: 'ADMIN';
+};
+type ModReport = Report & {
+    type: 'MOD';
+};
+type DevReport = Report & {
+    type: 'DEV';
+};
+
+type AdminApplication = Application & {
+    type: 'ADMIN';
+};
+type ModApplication = Application & {
+    type: 'MOD';
+};
+type DevApplication = Application & {
+    type: 'DEV';
+};
+
+type Diff<T, U> = T extends U ? never : T;
+type SelectivePartial<T, TOptional extends keyof T> = Partial<T> & Pick<T, Diff<keyof T, TOptional>>;
+
+type StudentFields = Partial<Student & {
+    deadlinesExcluded: Deadline[];
+    courses: Course[];
+    guilds: Guild[];
+    studentsToRoles: studentsToRoles[];
+}> & Pick<Student, 'discordId'>;
 
 export class Guild {
-    _suggestionNextEntryId: Big;
-    _reportNextEntryId: Big;
-    _applicationNextEntryId: {
-        [type: string]: Big
-    }
+    static _instance: Guild | undefined;
 
-    _rootDocument: DocumentReference<DocumentData>;
-    _rolesCollection: CollectionReference<DocumentData>;
-    _coursesCollection: CollectionReference<Course>;
-    _studentsCollection: CollectionReference<Student>;
-    _suggestionsCollection: CollectionReference<Suggestion>;
-    _reportsCollection: CollectionReference<Report>;
-    _applicationsCollection: CollectionReference<Application>;
+    static getInstance() {
+        if (this._instance === undefined)
+            this._instance = new Guild();
 
-    _courses: { [name: string]: Course };
-
-    _roles: {
-        [role: string]: {
-            id: string,
-            commands: [
-                {
-                    id: string
-                }
-            ]
-        }
-    };
-
-    _students: {
-        verified: Array<Student>,
-        unverified: Array<Student>
-    }
-
-    _suggestions: {
-        [index: string]: Suggestion
-    };
-
-    _reports: {
-        [index: string]: Report
-    };
-
-    _applications: {
-        [type: string]: {
-            [index: string]: Application
-        }
-    }
-
-    _writeBatch: WriteBatch | undefined;
-    _writeCallbacks: Array<WriteCallback>;
-
-    constructor(id: string) {
-        this._suggestionNextEntryId = new Big('0');
-        this._reportNextEntryId = new Big('0');
-        this._applicationNextEntryId = {
-            admin: new Big('0'),
-            mod: new Big('0'),
-            dev: new Big('0')
-        }
-
-        this._rootDocument = doc(firestoreApp, `guilds/${id}`);
-        this._rolesCollection = collection(this._rootDocument, 'roles');
-        this._coursesCollection = collection(this._rootDocument, 'courses').withConverter(Course.converter());
-        this._studentsCollection = collection(this._rootDocument, 'students').withConverter(Student.converter());
-
-        this._suggestionsCollection = collection(this._rootDocument, 'suggestions').withConverter({
-            fromFirestore: (snap) => {
-                if (snap.data().type === 'event') {
-                    let { datetime, ...rest } = snap.data();
-                    return {
-                        datetime: new Date(datetime.seconds * 1000),
-                        ...rest
-                    } as Suggestion & EventSuggestion;
-                }
-                else
-                    return snap.data() as Suggestion & ChannelSuggestion;
-            },
-            toFirestore: (suggestion) => suggestion
-        })
-
-        this._reportsCollection = collection(this._rootDocument, 'reports').withConverter({
-            fromFirestore: (snap) => {
-                let { datetime, ...rest } = snap.data();
-                return {
-                    datetime: new Date(snap.data().datetime.seconds * 1000),
-                    ...rest
-                } as Report;
-            },
-            toFirestore: (report) => report
-        })
-
-        this._applicationsCollection = collection(this._rootDocument, 'applications').withConverter({
-            fromFirestore: (snap) => snap.data() as Application,
-            toFirestore: (application) => application
-        })
-
-        this._courses = {};
-
-        this._roles = {};
-
-        this._students = { unverified: [], verified: [] };
-
-        this._suggestions = {};
-        this._reports = {};
-        this._applications = { admin: {}, mod: {}, dev: {} };
-
-        this._writeCallbacks = [];
+        return this._instance;
     }
 
     /**
      * 
      * @returns false if this guild has not been initialize into database before, true otherwise
      */
-    exists() {
-        // By definition, a Guild should have admin, mod and verified documents predefined.
-        if (!('admin' in this._roles) || this._roles.admin.id === '' ||
-            !('mod' in this._roles) || this._roles.mod.id === '' ||
-            !('verified' in this._roles) || this._roles.verified.id === '')
+    async guildExists(id: string) {
+        const guild = await prisma.guild.findUnique({
+            where: {
+                id: id
+            }
+        });
+
+        if (guild === null)
             return false;
 
         return true;
     }
-    getAdminRoleDetails() {
-        return this._roles['admin'];
-    }
 
-    updateAdminRoleId(id: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._rolesCollection, 'admin'), {
-            id: id
-        }, { merge: true, mergeFields: ['id'] });
-
-        // Append a pending write to this instance as well
-        this._writeCallbacks.push(() => { this._roles['admin'].id = id });
-    }
-
-    getModRoleDetails() {
-        return this._roles['mod'];
-    }
-
-    updateModRoleId(id: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._rolesCollection, 'mod'), {
-            id: id
-        }, { merge: true, mergeFields: ['id'] });
-
-        // Append a pending write to this instance as well
-        this._writeCallbacks.push(() => { this._roles['mod'].id = id });
-    }
-
-    getVerifiedRoleDetails() {
-        return this._roles['verified'];
-    }
-
-    updateVerifiedRoleId(id: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._rolesCollection, 'verified'), {
-            id: id
-        }, { merge: true, mergeFields: ['id'] });
-
-        // Append a pending write to this instance as well
-        this._writeCallbacks.push(() => { this._roles['verified'].id = id });
-    }
-
-    getAllCourses() {
-        return this._courses;
-    }
-
-    getCourse(name: string): Course | undefined {
-        if (name in this._courses)
-            return this._courses[name];
-        return undefined;
-    }
-
-    addCourse(course: Course) {
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._coursesCollection, course.name), course);
-
-        // Append a pending write to this instance as well
-        this._writeCallbacks.push(() => {
-            // For safety reasons, we might "add" to an existing course: Overwrite that
-            this._courses[course.name] = course;
+    async createGuild({ id, adminRoleId, modRoleId, verifiedRoleId, devRoleId }:
+        {
+            id: string;
+            adminRoleId: string;
+            modRoleId: string;
+            verifiedRoleId: string;
+            devRoleId: string;
+        }) {
+        return await prisma.guild.create({
+            data: {
+                id: id,
+                role: {
+                    create: [{
+                        type: 'ADMIN',
+                        id: adminRoleId
+                    }, {
+                        type: 'MOD',
+                        id: modRoleId
+                    }, {
+                        type: 'VERIFIED',
+                        id: verifiedRoleId
+                    }, {
+                        type: 'DEV',
+                        id: devRoleId
+                    }]
+                }
+            }
         });
     }
 
-    /**
-     * Adds a delete course job to this Guild
-     * @param courseName The course name to be deleted
-     * @returns true if found a matching course to delete, false otherwise
-     */
-    deleteCourse(courseName: string) {
-        if (!(courseName in this._courses))
-            return false;
-
-        this.startWriteBatch();
-
-        this._writeBatch.delete(doc(this._coursesCollection, courseName));
-
-        // Add a pending delete to callbacks as well
-        this._writeCallbacks.push(() => {
-            delete this._courses[courseName];
-        })
-
-        return true;
-    }
-
-    removeStudentFromCourse(courseName: string, studentId: string) {
-        if (!(courseName in this._courses))
-            return false;
-
-        const course = this._courses[courseName];
-        course.students = course.students.filter(id => id !== studentId);
-
-        this.updateCourse(course);
-
-        this._writeCallbacks.push(() => {
-            this._courses[courseName].deadlines.forEach(deadline =>
-                cancelReminders(courseName, deadline.name, studentId));
-        })
-
-        return true;
-    }
-
-    addStudentToCourse(courseName: string, discordId: string, client: Client) {
-        if (!(courseName in this._courses))
-            return false;
-
-        const student = this.getStudent(discordId);
-
-        if (student === undefined)
-            return false;
-
-        const course = this._courses[courseName];
-        course.students.push(student._id);
-
-        this.updateCourse(course);
-
-        this._writeCallbacks.push(() => {
-            this._courses[courseName].deadlines.forEach(deadline =>
-                scheduleReminders(client, courseName, deadline, student));
-        })
-
-        return true;
-    }
-
-    removeDeadlineFromCourse(courseName: string, deadlineName: string) {
-        if (!(courseName in this._courses))
-            return false;
-
-        const course = this._courses[courseName];
-
-        course.deadlines = course.deadlines.filter(value => value.name !== deadlineName);
-
-        this.updateCourse(course);
-
-        this._writeCallbacks.push(() => {
-            cancelDeadline(courseName, deadlineName);
-            this._courses[courseName].students.forEach(id =>
-                cancelReminders(courseName, deadlineName, id)
-            )
-        })
-
-        return true;
-    }
-
-    addDeadlineToCourse(courseName: string, deadline: Deadline, client: Client) {
-        if (!(courseName in this._courses))
-            return false;
-
-        const course = this._courses[courseName];
-
-        course.deadlines.push(deadline);
-
-        this.updateCourse(course);
-
-        this._writeCallbacks.push(() => {
-            scheduleDeadline(client, courseName, deadline);
-
-            this.getAllStudentsFromCourse(courseName).forEach(student =>
-                scheduleReminders(client, courseName, deadline, student)
-            )
-        })
-
-        return true;
-    }
-
-    editDeadlineFromCourse(courseName: string, oldDeadline: Deadline, newDeadline: Deadline) {
-        if (!(courseName in this._courses))
-            return false;
-
-        const course = this._courses[courseName];
-
-        let index = course.deadlines.findIndex(value => value.name === oldDeadline.name);
-
-        if (!dayjs(course.deadlines[index].datetime).isSame(dayjs(newDeadline.datetime)))
-            // Only add pending reschedule if the date has changed
-            this._writeCallbacks.push(() => {
-                rescheduleDeadline(courseName, newDeadline);
-
-                this.getAllStudentsFromCourse(courseName).forEach(student =>
-                    rescheduleReminders(courseName, newDeadline, student))
-            })
-
-        course.deadlines = course.deadlines.filter((_, i) => i !== index);
-        course.deadlines.push(newDeadline);
-
-        this.updateCourse(course);
-    }
-
-    updateCourse(course: Course) {
-        this.addCourse(course);
-    }
-
-    //addCourseDeadline(courseName: string, )
-
-    getAllStudents() {
-        return this._students;
-    }
-
-    getAllStudentsFromCourse(courseName: string) {
-        if (!(courseName in this._courses))
-            return [];
-
-        const course = this._courses[courseName];
-        return this._students.verified.filter(student => course.students.includes(student._id));
-    }
-
-    getStudent(discordId: string) {
-        for (let students of Object.values(this._students)) {
-            for (let student of students) {
-                if (student._discordId === discordId)
-                    return student;
+    async createAdminRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'ADMIN',
+                id: roleId,
+                guildId: guildId
             }
-        }
-
-        return undefined;
+        });
     }
 
-    addUnverifiedStudent(student: Student) {
-        this.startWriteBatch();
+    async getAdminRole(guildId: string = process.env.GUILD_ID as string) {
+        const adminRole = await prisma.role.findUnique({
+            where: {
+                guildId_type: {
+                    guildId: guildId,
+                    type: 'ADMIN'
+                }
+            }
+        });
 
-        this._writeBatch.set(doc(this._studentsCollection, student._discordId), student);
+        if (adminRole === null)
+            throw 'Admin role is not registered to database.';
 
-        // Also add pending write to this instance
-        this._writeCallbacks.push(() => {
-            this._students.unverified.push(student);
-        })
+        return adminRole;
     }
 
-    removeUnverifiedStudent(student: Student) {
-        this.startWriteBatch();
+    async updateAdminRoleId(role: Role, id: string) {
+        if (role.type !== 'ADMIN')
+            throw 'The given role is not an Admin role.';
 
-        this._writeBatch.delete(doc(this._studentsCollection, student._discordId));
+        await prisma.role.update({
+            where: {
+                id: role.id
+            },
+            data: {
+                id: id
+            }
+        });
+    }
 
-        // Also add epnding delete to this instance
-        this._writeCallbacks.push(() => {
-            this._students.unverified = this._students.unverified.filter(unverified => unverified._discordId !== student._discordId);
-        })
+    async createModRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'MOD',
+                id: roleId,
+                guildId: guildId
+            }
+        });
+    }
+
+    async getModRole(guildId: string = process.env.GUILD_ID as string) {
+        const modRole = await prisma.role.findFirst({
+            where: {
+                guildId: guildId,
+                type: 'MOD'
+            }
+        });
+
+        if (modRole === null)
+            throw 'Mod role is not registered to database.';
+
+        return modRole;
+    }
+
+    async updateModRoleId(role: Role, id: string) {
+        if (role.type !== 'MOD')
+            throw 'The given role is not a Mod role.';
+
+        await prisma.role.update({
+            where: {
+                id: role.id
+            },
+            data: {
+                id: id
+            }
+        });
+    }
+
+    async createVerifiedRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'VERIFIED',
+                id: roleId,
+                guildId: guildId
+            }
+        });
+    }
+
+    async getVerifiedRole(guildId: string = process.env.GUILD_ID as string) {
+        const verifiedRole = await prisma.role.findFirst({
+            where: {
+                guildId: guildId,
+                type: 'VERIFIED'
+            }
+        });
+
+        if (verifiedRole === null)
+            throw 'Verified role is not registered to database.';
+
+        return verifiedRole;
+    }
+
+    async updateVerifiedRoleId(role: Role, id: string) {
+        if (role.type !== 'VERIFIED')
+            throw 'The given role is not a Verified role.';
+
+        await prisma.role.update({
+            where: {
+                id: role.id
+            },
+            data: {
+                id: id
+            }
+        });
+    }
+
+    async createDevRole(guildId: string, roleId: string) {
+        return await prisma.role.create({
+            data: {
+                type: 'DEV',
+                id: roleId,
+                guildId: guildId
+            }
+        });
+    }
+
+    async getDevRole(guildId: string = process.env.GUILD_ID as string) {
+        const verifiedRole = await prisma.role.findFirst({
+            where: {
+                guildId: guildId,
+                type: 'DEV'
+            }
+        });
+
+        if (verifiedRole === null)
+            throw 'Dev role is not registered to database.';
+
+        return verifiedRole;
+    }
+
+    async updateDevRoleId(role: Role, id: string) {
+        if (role.type !== 'DEV')
+            throw 'The given role is not a Dev role.';
+
+        await prisma.role.update({
+            where: {
+                id: role.id
+            },
+            data: {
+                id: id
+            }
+        });
+    }
+
+    async getAllCourses() {
+        return await prisma.course.findMany({
+            include: {
+                students: true,
+                deadlines: true
+            }
+        });
+    }
+
+    async getCourse(name: string, include?: Prisma.CourseInclude) {
+        const course = await prisma.course.findUnique({
+            where: {
+                name: name
+            },
+            include: include
+        });
+
+        if (course === null)
+            return undefined;
+
+        return course;
+    }
+
+    async removeStudentFromCourse(courseName: string, discordId: string) {
+        const course = await prisma.course.findUnique({
+            where: {
+                name: courseName
+            },
+            include: {
+                students: true,
+                deadlines: true
+            }
+        });
+
+        if (course === null)
+            return false;
+
+        await prisma.course.update({
+            where: {
+                name: courseName
+            },
+            data: {
+                students: {
+                    disconnect: {
+                        discordId: discordId
+                    }
+                }
+            }
+        });
+
+        const student = await prisma.student.findUnique({
+            where: {
+                discordId: discordId
+            },
+            include: {
+                courses: true
+            }
+        });
+
+        if (student === null)
+            return false;
+
+        course.deadlines.forEach(deadline =>
+            cancelReminders(courseName, deadline.name, student.id));
+
+        return true;
+    }
+
+    async addStudentToCourse(courseName: string, discordId: string, client: Client) {
+        const course = await prisma.course.findUnique({
+            where: {
+                name: courseName
+            },
+            include: {
+                students: true,
+                deadlines: true
+            }
+        });
+
+        if (course === null)
+            return false;
+
+        const student = await prisma.student.findUnique({
+            where: {
+                discordId: discordId
+            }
+        });
+
+        if (student === null)
+            return false;
+
+        const updatedCourse = await prisma.course.update({
+            where: {
+                name: courseName
+            },
+            data: {
+                students: {
+                    connect: {
+                        discordId: discordId
+                    }
+                }
+            },
+            include: {
+                deadlines: true
+            }
+        });
+
+        updatedCourse.deadlines.forEach(deadline =>
+            scheduleReminders(client, courseName, deadline, student));
+
+        return true;
+    }
+
+    async removeDeadlineFromCourse(courseName: string, deadlineName: string) {
+        const course = await prisma.course.findUnique({
+            where: {
+                name: courseName
+            },
+            include: {
+                students: true,
+                deadlines: true
+            }
+        });
+
+        if (course === null)
+            return false;
+
+        const deadline = course.deadlines.find(value => value.name !== deadlineName);
+
+        if (deadline === undefined)
+            return false;
+
+        await prisma.deadline.delete({
+            where: {
+                id: deadline.id
+            }
+        });
+
+        cancelDeadline(courseName, deadlineName);
+
+        course.students.forEach(student =>
+            cancelReminders(courseName, deadlineName, student.id)
+        );
+
+        return true;
+    }
+
+    async addDeadlineToCourse(courseName: string, deadline: Omit<Deadline, 'id' | 'courseId'>, client: Client) {
+        const course = await prisma.course.findUnique({
+            where: {
+                name: courseName
+            },
+            include: {
+                students: true
+            }
+        });
+
+        if (course === null)
+            return false;
+
+        const createdDeadline = await prisma.deadline.create({
+            data: {
+                ...deadline,
+                course: {
+                    connect: {
+                        name: courseName
+                    }
+                }
+            }
+        });
+
+        scheduleDeadline(client, courseName, createdDeadline);
+
+        course.students.forEach(student =>
+            scheduleReminders(client, courseName, createdDeadline, student)
+        );
+
+        return true;
+    }
+
+    async editDeadlineFromCourse(courseName: string, oldDeadline: Omit<Deadline, "id" | "courseId">, newDeadline: Omit<Deadline, "id" | "courseId">) {
+
+        const deadline = await prisma.deadline.findFirst({
+            where: {
+                name: oldDeadline.name
+            },
+            include: {
+                course: {
+                    include: {
+                        students: true
+                    }
+                }
+            }
+        });
+
+        if (deadline === null)
+            return false;
+
+        if (dayjs(deadline.datetime).isSame(dayjs(newDeadline.datetime)) || dayjs(deadline.datetime).isBefore(dayjs()))
+            return false;
+
+        // Only add pending reschedule if the date has changed
+        rescheduleDeadline(courseName, { ...newDeadline, id: deadline.id, courseId: deadline.courseId });
+
+        deadline.course.students.forEach(student =>
+            rescheduleReminders(courseName, {
+                ...newDeadline,
+                id: deadline.id,
+                courseId: deadline.courseId
+            }, student)
+        );
+
+        await prisma.deadline.update({
+            where: {
+                id: deadline.id
+            },
+            data: {
+                ...newDeadline
+            }
+        });
+
+        return true;
+    }
+
+    /**
+     * Adds a new student into this guild. Note that this assumes that the student is not in the guild
+     * @param fields 
+     * @returns 
+     */
+    async addUnverifiedStudent(fields: SelectivePartial<Student, 'remindTime'> & { guildId: string; }) {
+        const { guildId, ...studentFields } = fields;
+
+        await prisma.student.create({
+            data: {
+                ...studentFields,
+                guilds: {
+                    connect: {
+                        id: guildId
+                    }
+                },
+                studentsToRoles: {
+                    create: [{
+                        guildId: guildId,
+                        roleType: 'UNVERIFIED'
+                    }]
+                }
+            }
+        });
+
+        return true;
+    }
+
+    async removeUnverifiedStudent(fields: SelectivePartial<Student, 'remindTime'> & { guildId: string; }) {
+        const { guildId, ...studentFields } = fields;
+
+        await prisma.student.update({
+            where: {
+                discordId: studentFields.discordId
+            },
+            data: {
+                guilds: {
+                    disconnect: [{
+                        id: guildId
+                    }]
+                },
+                studentsToRoles: {
+                    deleteMany: {
+                        guildId: guildId
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -424,348 +533,433 @@ export class Guild {
      * @param student The associated Student object
      * @returns true if found a matching student to verify, false otherwise
      */
-    verifyStudent(student: Student) {
-        if (this._students.unverified.find(unverified => unverified._discordId === student._discordId) === undefined)
-            return false;
-
-        student.setVerified();
-
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._studentsCollection, student._discordId), student);
-
-        // Also add pending write to this instance
-        this._writeCallbacks.push(((student: Student) => {
-            this._students.unverified = this._students.unverified.filter(unverified => unverified._discordId !== student._discordId);
-            this._students.verified.push(student);
-        }).bind(this, student));
-
-        return true;
-    }
-
-    modifyStudent(student: Student) {
-        if (student.isVerified() && this._students.verified.find(verified => verified._discordId === student._discordId) === undefined)
-            return false;
-        if (!student.isVerified() && this._students.unverified.find(unverified => unverified._discordId === student._discordId) === undefined)
-            return false;
-
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._studentsCollection, student._discordId), student);
-
-        // Also add pending write to either verified or unverified
-        this._writeCallbacks.push(((student: Student) => {
-
-            if (student.isVerified()) {
-                let index = this._students.verified.findIndex(verified => verified._discordId === student._discordId);
-
-                if (this._students.verified[index]._remindTime !== student._remindTime)
-                    for (let [courseName, course] of Object.entries(this.getAllCourses()))
-                        if (!course.students.includes(student._id))
-                            for (let deadline of course.deadlines)
-                                rescheduleReminders(courseName, deadline, student);
-
-                this._students.verified = this._students.verified.filter(verified => verified._discordId !== student._discordId);
-                this._students.verified.push(student);
-            } else {
-                this._students.unverified = this._students.unverified.filter(unverified => unverified._discordId !== student._discordId);
-                this._students.unverified.push(student);
+    async verifyStudent(studentFields: Pick<Student, 'discordId'> & { guildId: string; }) {
+        const student = await prisma.student.findFirst({
+            where: {
+                discordId: studentFields.discordId,
+                guilds: {
+                    some: {
+                        id: studentFields.guildId
+                    }
+                }
+            },
+            include: {
+                studentsToRoles: true
             }
+        });
 
-        }).bind(this, student))
+        if (student === null || !student.studentsToRoles.some(role => role.roleType === 'UNVERIFIED'))
+            return false;
+
+        await prisma.student.update({
+            where: {
+                discordId: studentFields.discordId
+            },
+            data: {
+                studentsToRoles: {
+                    create: [{
+                        guildId: studentFields.guildId,
+                        roleType: 'VERIFIED'
+                    }],
+                    deleteMany: {
+                        guildId: studentFields.guildId,
+                        roleType: 'UNVERIFIED'
+                    }
+                }
+            }
+        });
 
         return true;
     }
 
-    addRoleToStudent(type: 'admin' | 'mod' | 'dev' | 'verified', discordId: string) {
-        // First find the student
-        const student = this.getStudent(discordId);
+    async changeStudentDeadlineSettings(studentFields: Pick<StudentFields, 'discordId' | 'remindTime'>) {
 
-        if (student === undefined)
+        const { discordId, ...rest } = studentFields;
+
+        const student = await prisma.student.findUnique({
+            where: {
+                discordId: discordId
+            }
+        });
+
+        if (student === null)
             return false;
 
-        if (type === 'verified') {
-            if (!student._type.includes('unverified') || student._type.includes('verified'))
-                return false;
+        const updatedStudent = await prisma.student.update({
+            where: {
+                discordId: studentFields.discordId
+            },
+            data: {
+                ...rest
+            },
+            include: {
+                courses: {
+                    select: {
+                        name: true,
+                        deadlines: true
+                    }
+                }
+            }
+        });
 
-            student._type = student._type.filter(inner => inner !== 'unverified');
-            student._type.push('verified');
-        }
-
-        if (type === 'admin') {
-            if (!student._type.includes('mod') || student._type.includes('admin'))
-                return false;
-
-            student._type = student._type.filter(inner => inner !== 'mod');
-            student._type.push('admin');
-        }
-
-        if (type === 'mod') {
-            if (student._type.includes('mod'))
-                return false;
-
-            student._type = student._type.filter(inner => inner !== 'admin');
-            student._type.push('mod');
-        }
-
-        if (type === 'dev') {
-            if (student._type.includes('dev'))
-                return false;
-
-            student._type.push(type);
-        }
-
-
-        this.modifyStudent(student);
+        updatedStudent.courses.forEach(course => {
+            course.deadlines.forEach(deadline => {
+                rescheduleReminders(course.name, deadline, updatedStudent);
+            });
+        });
 
         return true;
     }
 
-    removeRoleFromStudent(type: 'admin' | 'mod' | 'dev' | 'verified', discordId: string) {
+    async addRoleToStudent(type: 'ADMIN' | 'MOD' | 'DEV' | 'VERIFIED', discordId: string, guildId: string) {
         // First find the student
-        const student = this.getStudent(discordId);
+        const student = await prisma.student.findFirst({
+            where: {
+                discordId: discordId,
+                guilds: {
+                    some: {
+                        id: guildId
+                    }
+                }
+            },
+            select: {
+                studentsToRoles: true
+            }
+        });
 
-        if (student === undefined)
+        if (student === null)
             return false;
 
-        if (!student._type.includes(type))
+
+        if (type === 'VERIFIED') {
+            if (!student.studentsToRoles.some(role => role.roleType === 'UNVERIFIED'))
+                return false;
+
+            await prisma.student.update({
+                where: {
+                    discordId: discordId
+                },
+                data: {
+                    studentsToRoles: {
+                        create: [{
+                            guildId: guildId,
+                            roleType: 'VERIFIED'
+                        }],
+                        deleteMany: {
+                            guildId: guildId,
+                            roleType: 'UNVERIFIED'
+                        }
+                    }
+                }
+            });
+        }
+
+        if (type === 'ADMIN') {
+            if (!student.studentsToRoles.some(role => role.roleType === 'MOD'))
+                return false;
+
+            await prisma.student.update({
+                where: {
+                    discordId: discordId
+                },
+                data: {
+                    studentsToRoles: {
+                        create: [{
+                            guildId: guildId,
+                            roleType: 'ADMIN'
+                        }],
+                        deleteMany: {
+                            guildId: guildId,
+                            roleType: 'MOD'
+                        }
+                    }
+                }
+            });
+        }
+
+        if (type === 'MOD') {
+            if (!student.studentsToRoles.some(role => role.roleType === 'ADMIN'))
+                return false;
+
+            await prisma.student.update({
+                where: {
+                    discordId: discordId
+                },
+                data: {
+                    studentsToRoles: {
+                        create: [{
+                            guildId: guildId,
+                            roleType: 'MOD'
+                        }],
+                        deleteMany: {
+                            guildId: guildId,
+                            roleType: 'ADMIN'
+                        }
+                    }
+                }
+            });
+        }
+
+        if (type === 'DEV') {
+            if (student.studentsToRoles.some(role => role.roleType === 'DEV'))
+                return false;
+
+            await prisma.student.update({
+                where: {
+                    discordId: discordId
+                },
+                data: {
+                    studentsToRoles: {
+                        create: [{
+                            guildId: guildId,
+                            roleType: 'DEV'
+                        }]
+                    }
+                }
+            });
+        }
+
+        return true;
+    }
+
+    async removeRoleFromStudent(type: 'ADMIN' | 'MOD' | 'DEV' | 'VERIFIED', discordId: string, guildId: string) {
+        // First find the student
+        const student = await prisma.student.findFirst({
+            where: {
+                discordId: discordId,
+                guilds: {
+                    some: {
+                        id: guildId
+                    }
+                }
+            },
+            include: {
+                studentsToRoles: true
+            }
+        });
+
+        if (student === null)
             return false;
 
-        student._type = student._type.filter(inner => inner !== type);
+        if (!student.studentsToRoles.some(role => role.roleType === type))
+            return false;
 
-        if (type === 'verified')
+        await prisma.student.update({
+            where: {
+                discordId: discordId
+            },
+            data: {
+                studentsToRoles: {
+                    deleteMany: {
+                        guildId: guildId,
+                        roleType: type
+                    }
+                }
+            }
+        });
+
+        if (type === 'VERIFIED')
             // Put the student back into unverified state
-            student._type.push('unverified')
-
-        this.modifyStudent(student);
+            await prisma.student.update({
+                where: {
+                    discordId: discordId
+                },
+                data: {
+                    studentsToRoles: {
+                        create: [{
+                            guildId: guildId,
+                            roleType: 'VERIFIED'
+                        }]
+                    }
+                }
+            });
 
         return true;
     }
 
-    getAllSuggestions() {
-        return this._suggestions;
-    }
-
-    getChannelSuggestions() {
-        let result: { [index: string]: Suggestion & ChannelSuggestion } = {};
-
-        for (let suggestion of Object.entries(this._suggestions)) {
-            if (suggestion[1].type === 'channel')
-                result[suggestion[0]] = suggestion[1];
-        }
-        return result;
-    }
-
-    getEventSuggestions() {
-        let result: { [index: string]: Suggestion & EventSuggestion } = {};
-
-        for (let suggestion of Object.entries(this._suggestions)) {
-            if (suggestion[1].type === 'event')
-                result[suggestion[0]] = suggestion[1];
-        }
-        return result;
-    }
-
-    addSuggestion(suggestion: Suggestion) {
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._suggestionsCollection, this._suggestionNextEntryId.toString()), suggestion);
-        this._writeBatch.set(this._rootDocument, { suggestionNextEntryId: this._suggestionNextEntryId.plus('1').toString() });
-
-        // Also add pending write to list of suggestions
-        this._writeCallbacks.push(() => {
-            this._suggestions[this._suggestionNextEntryId.toString()] = suggestion;
-        })
-
-        this._suggestionNextEntryId = this._suggestionNextEntryId.plus('1');
-    }
-
-    deleteSuggestion(suggestionId: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.delete(doc(this._suggestionsCollection, suggestionId));
-
-        // Also add pending delete to list of suggestions
-        this._writeCallbacks.push(() => {
-            delete this._suggestions[suggestionId];
-        });
-    }
-
-    getAllReports() {
-        return this._reports;
-    }
-
-    getModReports() {
-        let result: { [index: string]: Report } = {};
-
-        for (let report of Object.entries(this._reports)) {
-            if (report[1].type === 'mod')
-                result[report[0]] = report[1];
-        }
-        return result;
-    }
-
-    addReport(report: Report) {
-        this.startWriteBatch();
-
-        this._writeBatch.set(doc(this._reportsCollection, this._reportNextEntryId.toString()), report);
-        this._writeBatch.set(this._rootDocument, { reportNextEntryId: this._reportNextEntryId.plus('1').toString() });
-
-        // Also add pending write to list of reports 
-        this._writeCallbacks.push(() => {
-            this._reports[this._reportNextEntryId.toString()] = report;
-
-            this._reportNextEntryId.plus('1');
-        })
-
-        this._reportNextEntryId = this._reportNextEntryId.plus('1');
-    }
-
-    deleteReport(suggestionId: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.delete(doc(this._suggestionsCollection, suggestionId));
-
-        // Also add pending delete to list of reports 
-        this._writeCallbacks.push(() => {
-            delete this._reports[suggestionId];
-        });
-    }
-
-    getAllApplications() {
-        return this._applications;
-    }
-
-    getAdminApplications() {
-        return this._applications['admin'];
-    }
-
-    getModApplications() {
-        return this._applications['mod'];
-    }
-
-    getDevApplications() {
-        return this._applications['dev'];
-    }
-
-    addApplication(application: Application) {
-        this.startWriteBatch();
-
-        let response: any = {};
-
-        response[`${application.type}ApplicationNextEntryId`] = this._applicationNextEntryId[application.type].plus('1').toString();
-
-        this._writeBatch.set(doc(this._applicationsCollection, `${application.type}: ${this._applicationNextEntryId[application.type].toString()}`), application);
-        this._writeBatch.set(this._rootDocument, response);
-
-        // Also add pending write to list of applications 
-        this._writeCallbacks.push(() => {
-            this._applications[application.type][this._applicationNextEntryId[application.type].toString()] = application;
-        })
-
-        this._applicationNextEntryId[application.type] = this._applicationNextEntryId[application.type].plus('1');
-    }
-
-    deleteApplication(applicationType: string, applicationId: string) {
-        this.startWriteBatch();
-
-        this._writeBatch.delete(doc(this._applicationsCollection, `${applicationType}: ${applicationId}`));
-
-        // Also add pending delete to list of applications 
-        this._writeCallbacks.push(() => {
-            delete this._applications[applicationType][this._applicationNextEntryId[applicationType].toString()];
-        })
-    }
-
-    async save() {
-        if (!this.writeBatchStarted(this._writeBatch)) {
-            Promise.reject('There\'s nothing to write!');
-            return;
-        }
-
-        console.log('Saving...');
-        await this._writeBatch.commit();
-        console.log('Saved!');
-
-        // Also save these writes to this instance
-        while (this._writeCallbacks.length !== 0)
-            (this._writeCallbacks.pop() as WriteCallback)();
-
-        // Remove the instance afterwards
-        this._writeBatch = undefined;
-    }
-
-    private async build() {
-        const guildFields = (await getDoc(this._rootDocument)).data();
-
-        if (guildFields !== undefined) {
-            this._suggestionNextEntryId = new Big(guildFields.suggestionNextEntryId || '0');
-            this._reportNextEntryId = new Big(guildFields.reportNextEntryId || '0');
-        }
-
-        const rolesResult = await getDocs(this._rolesCollection);
-        const coursesResult = await getDocs(this._coursesCollection);
-
-        rolesResult.forEach(document => {
-            this._roles[document.id] = document.data() as any;
-        })
-
-        coursesResult.forEach(snapshot => {
-            this._courses[snapshot.data().name] = snapshot.data();
-        });
-
-        this._students = (await getDocs(this._studentsCollection)).docs.reduce(
-            (result, document) => {
-                if (document.data()._verified)
-                    result.verified.push(document.data());
-                else
-                    result.unverified.push(document.data());
-
-                return result;
+    async getAllSuggestions(guildId: string) {
+        return await prisma.suggestion.findMany({
+            where: {
+                guildId: guildId
             }
-            , { unverified: [], verified: [] } as typeof this._students
-        )
-
-        this._suggestions = (await getDocs(this._suggestionsCollection)).docs.reduce(
-            (result, document) => {
-                result[document.id] = document.data();
-                return result;
-            }, {} as typeof this._suggestions);
-        this._reports = (await getDocs(this._reportsCollection)).docs.reduce(
-            (result, document) => {
-                result[document.id] = document.data();
-                return result;
-            }, {} as typeof this._reports);
-
-        this._applications = (await getDocs(this._applicationsCollection)).docs.reduce(
-            (result, document) => {
-                let ids = document.id.split(': ');
-                result[ids[0]][ids[1]] = document.data();
-                return result;
-            }, { admin: {}, mod: {}, dev: {} } as typeof this._applications);
+        });
     }
 
-    /**
-     * Uses an existing write batch if intialized, otherwise creates a new write batch.
-     */
-    private startWriteBatch(): asserts this is { _writeBatch: WriteBatch } {
-        if (this.writeBatchStarted(this._writeBatch))
-            return;
-
-        this._writeBatch = writeBatch(firestoreApp);
+    async getChannelSuggestions(guildId: string) {
+        return await prisma.suggestion.findMany({
+            where: {
+                guildId: guildId,
+                type: 'CHANNEL'
+            }
+        }) as ChannelSuggestion[];
     }
 
-    private writeBatchStarted(writeBatch: WriteBatch | undefined): writeBatch is WriteBatch {
-        return writeBatch !== undefined;
+    async getEventSuggestions(guildId: string) {
+        return await prisma.suggestion.findMany({
+            where: {
+                guildId: guildId,
+                type: 'EVENT'
+            }
+        }) as EventSuggestion[];
     }
-    /**
-     * 
-     * @param id The id of the guild
-     * @returns A Guild object, modelling the database version of Guild
-     */
-    static async get(id: string) {
-        const result = new Guild(id);
-        await result.build();
-        return result;
+
+    async addSuggestion(suggestion: Omit<Suggestion, 'id'>) {
+
+        if (suggestion.type === 'CHANNEL' && suggestion.location !== null)
+            throw 'Malformed Channel Suggestion.';
+
+        if (suggestion.type === 'EVENT' && suggestion.location === null)
+            throw 'Malformed Event Suggestion.';
+
+        return await prisma.suggestion.create({
+            data: {
+                ...suggestion
+            }
+        });
+    }
+
+    async deleteSuggestion(suggestionId: number) {
+        const suggestion = await prisma.suggestion.findUnique({
+            where: {
+                id: suggestionId
+            }
+        });
+
+        if (suggestion === null)
+            return false;
+
+        // TODO: Catching wrongful deletions of non-existent records
+        await prisma.suggestion.delete({
+            where: {
+                id: suggestionId
+            }
+        });
+
+        return true;
+    }
+
+    async getAllReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId
+            }
+        });
+    }
+
+    async getAdminReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId,
+                type: 'ADMIN'
+            }
+        }) as AdminReport[];
+    }
+
+    async getModReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId,
+                type: 'MOD'
+            }
+        }) as ModReport[];
+    }
+
+    async getDevReports(guildId: string) {
+        return await prisma.report.findMany({
+            where: {
+                guildId: guildId,
+                type: 'DEV'
+            }
+        }) as DevReport[];
+    }
+
+    async addReport(report: Omit<Report, 'id'>) {
+        return await prisma.report.create({
+            data: {
+                ...report
+            }
+        });
+    }
+
+    async deleteReport(reportId: number) {
+        const report = await prisma.report.findUnique({
+            where: {
+                id: reportId
+            }
+        });
+
+        if (report === null)
+            return false;
+
+        // TODO: Catching wrongful deletions of non-existent records
+        await prisma.report.delete({
+            where: {
+                id: reportId
+            }
+        });
+
+        return true;
+    }
+
+    async getAllApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId
+            }
+        });
+    }
+
+    async getAdminApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId,
+                type: 'ADMIN'
+            }
+        }) as AdminApplication[];
+    }
+
+    async getModApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId,
+                type: 'MOD'
+            }
+        }) as ModApplication[];
+    }
+
+    async getDevApplications(guildId: string) {
+        return await prisma.application.findMany({
+            where: {
+                guildId: guildId,
+                type: 'DEV'
+            }
+        }) as DevApplication[];
+    }
+
+    async addApplication(application: Omit<Application, 'id'>) {
+        return await prisma.application.create({
+            data: {
+                ...application
+            }
+        });
+    }
+
+    async deleteApplication(applicationId: number) {
+        const application = await prisma.application.findUnique({
+            where: {
+                id: applicationId
+            }
+        });
+
+        if (application === null)
+            return false;
+
+        await prisma.application.delete({
+            where: {
+                id: applicationId
+            }
+        });
+
+        return true;
     }
 }

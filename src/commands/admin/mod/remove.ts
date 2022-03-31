@@ -8,18 +8,18 @@ const command = createSubCommand('remove', 'Removes a moderator',
         .setRequired(true)), async interaction => {
             const targetMember = interaction.options.getMember('target_user', true) as GuildMember;
 
-            const modId = GUILD.getModRoleDetails().id;
+            const modId = (await GUILD.getModRole()).id;
 
             // If the member is not a mod
             if (targetMember.roles.resolve(modId) === null)
-                await interaction.reply({ content: `${targetMember.displayName} was not a mod!`, ephemeral: true })
+                await interaction.reply({ content: `${targetMember.displayName} was not a mod!`, ephemeral: true });
             else {
                 await targetMember.roles.remove(modId);
-                GUILD.removeRoleFromStudent('mod', interaction.user.id);
-                await GUILD.save();
 
-                await interaction.reply({ content: `${targetMember.displayName} has been removed from being a mod!`, ephemeral: true })
+                await GUILD.removeRoleFromStudent('MOD', interaction.user.id, interaction.guildId as string);
+
+                await interaction.reply({ content: `${targetMember.displayName} has been removed from being a mod!`, ephemeral: true });
             }
-        })
+        });
 
 export default command;
