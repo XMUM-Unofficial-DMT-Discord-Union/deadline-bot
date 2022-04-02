@@ -6,6 +6,10 @@ export default {
     once: false,
     name: 'interactionCreate',
     async execute(interaction: Interaction<CacheType>) {
+
+        // TODO: Add Support for Context Menus
+        if (interaction.isContextMenu() || interaction.isMessageContextMenu() || interaction.isUserContextMenu()) return;
+
         // TODO: Add Error Response
         if (!(interaction.isCommand() || interaction.isAutocomplete())) return;
 
