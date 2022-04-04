@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, MessageSelectMenu, TextBasedChannel } from 'discord.js';
+import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, SelectMenuBuilder, TextBasedChannel, ButtonStyle, ComponentType, Colors, ButtonComponent } from 'discord.js';
 import { Course, Deadline } from '../../../models/course.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
@@ -15,22 +15,22 @@ type Response = {
 
 type CallbackReturn = [Response, boolean];
 
-const yesButton = new MessageButton()
+const yesButton = new ButtonBuilder()
     .setCustomId('yes')
     .setLabel('Yes')
-    .setStyle('PRIMARY');
+    .setStyle(ButtonStyle.Primary);
 
-const noButton = new MessageButton()
+const noButton = new ButtonBuilder()
     .setCustomId('no')
     .setLabel('no')
-    .setStyle('PRIMARY');
+    .setStyle(ButtonStyle.Primary);
 
 const ID_STATES: {
     [discordId: string]: number;
 } = {};
 
 const callbacks = [
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response, deadline: Deadline, course: Course, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Response, deadline: Deadline, course: Course, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
         await interaction.editReply({
             embeds: [{
                 title: 'Edit Deadline',
@@ -45,7 +45,7 @@ const callbacks = [
 
         return [response, true];
     },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response, deadline: Deadline, course: Course, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Response, deadline: Deadline, course: Course, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
         if (message !== undefined) {
             dayjs.extend(customParseFormat);
             const parsed = dayjs(message.content, 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true);
@@ -79,12 +79,12 @@ const callbacks = [
                     }
                 ]
             }],
-            components: [new MessageActionRow()
-                .addComponents([yesButton, noButton])]
+            components: [new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(yesButton, noButton)]
         }) as Message;
 
         const componentCollector = reply.createMessageComponentCollector({
-            componentType: 'BUTTON',
+            componentType: ComponentType.Button,
             filter: interactor => interactor.user.id === interaction.user.id,
             idle: 30000
         })
@@ -104,18 +104,20 @@ const callbacks = [
                     await interaction.editReply({
                         embeds: [{
                             title: 'Edit Deadline ✅',
-                            color: 'GREEN'
+                            color: Colors.Green
                         }]
                     });
                 }
             })
             .on('stop', async () => {
 
-                const disabled = reply.components[0].components;
-                disabled.forEach(component => component.setDisabled(true));
+                const disabled = reply.components[0].components.map(component => {
+                    return ButtonBuilder.from(component as ButtonComponent).setDisabled(true);
+                });
+
                 await interaction.editReply({
-                    components: [new MessageActionRow()
-                        .setComponents(disabled)]
+                    components: [new ActionRowBuilder<ButtonBuilder>()
+                        .setComponents(...disabled)]
                 });
             });
 
@@ -128,9 +130,9 @@ function courseReplyOptions() {
         embeds: [{
             title: 'Choose a course'
         }],
-        components: [new MessageActionRow()
+        components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents((() => {
-                const menu = new MessageSelectMenu()
+                const menu = new SelectMenuBuilder()
                     .setCustomId('course');
 
                 let hasValues = false;
@@ -158,9 +160,9 @@ function deadlineReplyOptions(course: Course) {
     return {
         embeds: [{
             title: 'Choose a deadline to edit.'
-        }], components: [new MessageActionRow()
+        }], components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents((() => {
-                const menu = new MessageSelectMenu()
+                const menu = new SelectMenuBuilder()
                     .setCustomId('choose_deadline');
 
                 for (let deadline of course.deadlines) {
@@ -175,7 +177,7 @@ function deadlineReplyOptions(course: Course) {
     };
 }
 
-async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
+async function chooseDeadlineLifecycle(interaction: ChatInputCommandInteraction) {
     const response: any = {};
 
     try {
@@ -194,7 +196,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
 
     const collector = reply.createMessageComponentCollector({
         filter: component => component.user.id === interaction.user.id,
-        componentType: 'SELECT_MENU',
+        componentType: ComponentType.SelectMenu,
         idle: 30000
     })
         .on('collect', async componentInteraction => {
@@ -218,7 +220,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
         });
 }
 
-async function extendDeadlineLifecycle(interaction: CommandInteraction, message: Message, course: Course, deadline: Deadline) {
+async function extendDeadlineLifecycle(interaction: ChatInputCommandInteraction, message: Message, course: Course, deadline: Deadline) {
     ID_STATES[interaction.user.id] = 0;
     let response = {
         name: deadline.name,

@@ -1,14 +1,31 @@
-import { Client, Intents } from 'discord.js';
+import { Client, GatewayIntentBits } from 'discord.js';
 
 import { Event } from './types.js';
 import { directoryFiles } from './utilities.js';
 import { initializeScheduler } from './scheduler.js';
 import { fileURLToPath } from 'url';
-import discordModals from 'discord-modals';
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_MEMBERS, Intents.FLAGS.DIRECT_MESSAGES] });
+const client = new Client({
+    intents: [
+        // Guilds
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildEmojisAndStickers,
+        GatewayIntentBits.GuildInvites,
+        GatewayIntentBits.GuildBans,
+        GatewayIntentBits.GuildPresences,
+        GatewayIntentBits.GuildScheduledEvents,
+        GatewayIntentBits.GuildIntegrations,
+        GatewayIntentBits.GuildWebhooks,
 
-discordModals(client);
+        // Direct Messages
+        GatewayIntentBits.DirectMessages,
+
+        // General Messages 
+        GatewayIntentBits.MessageContent
+    ]
+});
 
 // Dynamically read all event files
 for (const eventPromise of directoryFiles<Event>(fileURLToPath(import.meta.url), 'events')) {
@@ -19,6 +36,12 @@ for (const eventPromise of directoryFiles<Event>(fileURLToPath(import.meta.url),
     else
         client.on(event.name, (...args) => event.execute(...args));
 }
+
+// Debugging usage
+client.on('debug', console.debug);
+
+// Error handling
+client.on('error', console.warn);
 
 client.login(process.env.CLIENT_TOKEN as string);
 

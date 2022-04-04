@@ -1,4 +1,4 @@
-import { CacheType, CommandInteraction, Interaction } from "discord.js";
+import { CacheType, ChatInputCommandInteraction, Interaction, ModalSubmitInteraction } from "discord.js";
 
 import Commands from "../commands.js";
 
@@ -8,24 +8,39 @@ export default {
     async execute(interaction: Interaction<CacheType>) {
 
         // TODO: Add Support for Context Menus
-        if (interaction.isContextMenu() || interaction.isMessageContextMenu() || interaction.isUserContextMenu()) return;
+        if (interaction.isContextMenuCommand() || interaction.isMessageContextMenuCommand() || interaction.isUserContextMenuCommand()) return;
 
-        // TODO: Add Error Response
-        if (!(interaction.isCommand() || interaction.isAutocomplete())) return;
+        // Modal-specific interaction
+        if (interaction.isModalSubmit()) {
+            let categorySeparatorIndex = interaction.customId.indexOf(' ');
+            let nextHandlerId = interaction.customId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex);
+            let partitionId = categorySeparatorIndex === -1 ? interaction.customId : interaction.customId.substring(categorySeparatorIndex + 1);
+
+            let handler = Commands.MODAL_HANDLERS.get(nextHandlerId);
+
+            if (handler === undefined) {
+                await interaction.reply({ content: `Oops! Looks like the bot encountered a bug. Please report this to the developer.`, ephemeral: true });
+                throw `The modal with id '${interaction.customId}' does not have an appropriate handler.`;
+            }
+            else
+                await handler(interaction, partitionId);
+            return;
+        }
+
+        // TODO Split Interactions that doesn't have `options.getSubcommand` property
+
+        if (!(interaction.isChatInputCommand() || interaction.isAutocomplete())) return;
 
         const command = Commands.BOT_COMMANDS.get(interaction.commandName);
 
         // TODO: Add Error Response
         if (!command) return;
 
-
         try {
-            await command.execute(interaction as CommandInteraction);
+            await command.execute(interaction);
         } catch (error) {
-            // TODO: Add Error Response
-            console.error(error);
-
-            await (interaction as CommandInteraction).reply({ content: `There was an error while executing this command!\nReason: ${error}`, ephemeral: true });
+            await (interaction as ChatInputCommandInteraction).reply({ content: `Oops! Looks like the bot encountered a bug. Please report this to the developer.`, ephemeral: true });
+            throw error;
         }
     }
 };

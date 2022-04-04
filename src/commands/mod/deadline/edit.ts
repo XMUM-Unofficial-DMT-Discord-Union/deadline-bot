@@ -5,30 +5,31 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, MessageSelectMenu, TextBasedChannel } from 'discord.js';
+import { ChatInputCommandInteraction, ComponentType, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, SelectMenuBuilder, TextBasedChannel, Colors, ButtonStyle, InteractionReplyOptions, ButtonComponent } from 'discord.js';
 
 import { Course, Deadline } from '@prisma/client';
 import { createSubCommand, GUILD } from '../../../utilities.js';
+import { ComponentBuilder, createComponentBuilder } from '@discordjs/builders';
 
 type CallbackReturn = [Deadline, boolean];
 
-const yesButton = new MessageButton()
+const yesButton = new ButtonBuilder()
     .setCustomId('yes')
     .setLabel('Yes')
-    .setStyle('PRIMARY');
+    .setStyle(ButtonStyle.Primary);
 
-const noButton = new MessageButton()
+const noButton = new ButtonBuilder()
     .setCustomId('no')
     .setLabel('no')
-    .setStyle('PRIMARY');
+    .setStyle(ButtonStyle.Primary);
 
-const skipButton = new MessageButton()
+const skipButton = new ButtonBuilder()
     .setCustomId('skip')
     .setLabel('skip')
-    .setStyle('SECONDARY');
+    .setStyle(ButtonStyle.Secondary);
 
 const callbacks = [
-    async (interaction: CommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
         if (message !== undefined) {
             response.name = message.content;
             await message.delete();
@@ -43,7 +44,7 @@ const callbacks = [
 
         return [response, true];
     },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
         let hasMessage = message !== undefined;
         if (hasMessage) {
             response.name = message?.content as string;
@@ -54,7 +55,7 @@ const callbacks = [
             embeds: [{
                 title: 'Edit Deadline',
                 description: `Please enter the deadline date of this deadline.\n(Was \`${deadline.datetime.toLocaleString()}\`)`,
-                color: hasMessage ? 'DEFAULT' : 'RED',
+                color: hasMessage ? Colors.Default : Colors.Red,
                 fields: [{
                     name: 'Format',
                     value: `\`DD/MM/YYYY, HH:mm:ss\``
@@ -64,7 +65,7 @@ const callbacks = [
 
         return [response, true];
     },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
         if (message !== undefined) {
             dayjs.extend(customParseFormat);
             const parsed = dayjs(message.content, 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true);
@@ -85,7 +86,7 @@ const callbacks = [
 
         return [response, true];
     },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Deadline, deadline: Deadline): Promise<CallbackReturn> => {
         if (message !== undefined) {
             response.description = message.content;
             await message.delete();
@@ -100,7 +101,7 @@ const callbacks = [
 
         return [response, true];
     },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Deadline): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Deadline): Promise<CallbackReturn> => {
         if (message !== undefined) {
             response.url = message.content;
             await message.delete();
@@ -128,8 +129,12 @@ const callbacks = [
                     }
                 ]
             }],
-            components: [new MessageActionRow()
-                .addComponents([yesButton, noButton])]
+            components: [new ActionRowBuilder<ButtonBuilder>({
+                components: [
+                    yesButton,
+                    noButton
+                ],
+            })]
         });
 
         return [response, true];
@@ -141,9 +146,9 @@ async function courseReplyOptions() {
         embeds: [{
             title: 'Choose a course'
         }],
-        components: [new MessageActionRow()
+        components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents(await (async () => {
-                const menu = new MessageSelectMenu()
+                const menu = new SelectMenuBuilder()
                     .setCustomId('course');
 
                 let hasValues = false;
@@ -171,9 +176,9 @@ function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
     return {
         embeds: [{
             title: 'Choose a deadline to edit.'
-        }], components: [new MessageActionRow()
+        }], components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents((() => {
-                const menu = new MessageSelectMenu()
+                const menu = new SelectMenuBuilder()
                     .setCustomId('choose_deadline');
 
                 for (let deadline of course.deadlines) {
@@ -188,7 +193,7 @@ function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
     };
 }
 
-async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
+async function chooseDeadlineLifecycle(interaction: ChatInputCommandInteraction) {
     let response: any = {};
 
     try {
@@ -206,7 +211,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
 
     const collector = reply.createMessageComponentCollector({
         filter: component => component.user.id === interaction.user.id,
-        componentType: 'SELECT_MENU',
+        componentType: ComponentType.SelectMenu,
         idle: 30000
     })
         .on('collect', async componentInteraction => {
@@ -237,7 +242,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
                 response.deadline = deadline;
 
                 await componentInteraction.update({
-                    components: [new MessageActionRow()
+                    components: [new ActionRowBuilder<ButtonBuilder>()
                         .addComponents(skipButton)]
                 });
                 collector.stop();
@@ -248,7 +253,7 @@ async function chooseDeadlineLifecycle(interaction: CommandInteraction) {
         });
 }
 
-async function editDeadlineLifecycle(interaction: CommandInteraction, message: Message, courseName: string, deadline: Deadline) {
+async function editDeadlineLifecycle(interaction: ChatInputCommandInteraction, message: Message, courseName: string, deadline: Deadline) {
     let id = 0;
     let response: typeof deadline = {
         id: deadline.id,
@@ -283,7 +288,7 @@ async function editDeadlineLifecycle(interaction: CommandInteraction, message: M
         });
 
     const componentCollector = message.createMessageComponentCollector({
-        componentType: 'BUTTON',
+        componentType: ComponentType.Button,
         filter: interactor => interactor.user.id === interaction.user.id,
         idle: 30000
     })
@@ -295,7 +300,7 @@ async function editDeadlineLifecycle(interaction: CommandInteraction, message: M
                     id = 0;
 
                     await componentInteraction.update({
-                        components: [new MessageActionRow()
+                        components: [new ActionRowBuilder<ButtonBuilder>()
                             .addComponents(skipButton)]
                     });
 
@@ -311,7 +316,7 @@ async function editDeadlineLifecycle(interaction: CommandInteraction, message: M
                     await interaction.editReply({
                         embeds: [{
                             title: 'Edit Deadline ✅',
-                            color: 'GREEN'
+                            color: Colors.Green
                         }]
                     });
                 }
@@ -329,7 +334,7 @@ async function editDeadlineLifecycle(interaction: CommandInteraction, message: M
                 response.url = deadline.url;
 
             await componentInteraction.update({
-                components: [new MessageActionRow()
+                components: [new ActionRowBuilder<ButtonBuilder>()
                     .addComponents(skipButton)]
             });
 
@@ -342,11 +347,13 @@ async function editDeadlineLifecycle(interaction: CommandInteraction, message: M
         })
         .on('stop', async () => {
 
-            const disabled = message.components[0].components;
-            disabled.forEach(component => component.setDisabled(true));
+            const disabled = message.components[0].components.map(component => {
+                return ButtonBuilder.from(component as ButtonComponent).setDisabled(true);
+            });
+
             await interaction.editReply({
-                components: [new MessageActionRow()
-                    .setComponents(disabled)]
+                components: [new ActionRowBuilder<ButtonBuilder>()
+                    .setComponents(...disabled)]
             });
         });
 }

@@ -1,9 +1,9 @@
-import { MessageEmbedOptions } from 'discord.js';
+import { EmbedBuilderOptions } from 'discord.js';
 import ms, { StringValue } from 'ms';
 
 import { createSubCommand, prisma } from '../../utilities.js';
 
-function editReminderEmbed(newRemind: number): MessageEmbedOptions {
+function editReminderEmbed(newRemind: number): EmbedBuilderOptions {
     return {
         title: 'Deadline Reminder Settings',
         description: `Please enter a new remind time relative to any deadline.\n(Was \`${ms(newRemind)}\` before the deadline)`,

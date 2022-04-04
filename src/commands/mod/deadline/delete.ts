@@ -1,4 +1,4 @@
-import { Message, MessageActionRow, MessageSelectMenu } from 'discord.js';
+import { Message, ActionRowBuilder, SelectMenuBuilder, ComponentType, Colors } from 'discord.js';
 
 import { Course, Deadline } from '@prisma/client';
 import { createSubCommand, GUILD } from '../../../utilities.js';
@@ -8,9 +8,9 @@ function courseReplyOptions() {
         embeds: [{
             title: 'Choose a course'
         }],
-        components: [new MessageActionRow()
-            .addComponents([(() => {
-                const menu = new MessageSelectMenu()
+        components: [new ActionRowBuilder<SelectMenuBuilder>()
+            .addComponents((() => {
+                const menu = new SelectMenuBuilder()
                     .setCustomId('course');
 
                 let hasValue = false;
@@ -29,7 +29,7 @@ function courseReplyOptions() {
                     throw 'No deadlines.';
 
                 return menu;
-            })()])]
+            })())]
     };
 }
 
@@ -37,9 +37,9 @@ function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
     return {
         embeds: [{
             title: 'Choose a deadline to delete.'
-        }], components: [new MessageActionRow()
+        }], components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents((() => {
-                const menu = new MessageSelectMenu()
+                const menu = new SelectMenuBuilder()
                     .setCustomId('choose_deadline');
 
                 for (let deadline of course.deadlines) {
@@ -77,7 +77,7 @@ const command = createSubCommand('delete', 'Deletes a deadline',
 
         const collector = reply.createMessageComponentCollector({
             filter: component => component.user.id === interaction.user.id,
-            componentType: 'SELECT_MENU',
+            componentType: ComponentType.SelectMenu,
             idle: 30000
         })
             .on('collect', async componentInteraction => {
@@ -97,7 +97,7 @@ const command = createSubCommand('delete', 'Deletes a deadline',
                     await componentInteraction.update({
                         embeds: [{
                             title: 'Deadline Removed!',
-                            color: 'DARK_GREEN'
+                            color: Colors.DarkGreen
                         }],
                         components: []
                     });

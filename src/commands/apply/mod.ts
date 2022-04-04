@@ -1,5 +1,5 @@
 import { Application } from '@prisma/client';
-import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, TextBasedChannel } from 'discord.js';
+import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, TextBasedChannel } from 'discord.js';
 
 import { createSubCommand, GUILD } from '../../utilities.js';
 
@@ -11,18 +11,18 @@ type Response = Omit<Application, 'id'>;
 
 type CallbackReturn = [Response, boolean];
 
-const yesButton = new MessageButton()
+const yesButton = new ButtonBuilder()
     .setCustomId('yes')
     .setLabel('Yes')
-    .setStyle('PRIMARY');
+    .setStyle(ButtonStyle.Primary);
 
-const noButton = new MessageButton()
+const noButton = new ButtonBuilder()
     .setCustomId('no')
     .setLabel('no')
-    .setStyle('PRIMARY');
+    .setStyle(ButtonStyle.Primary);
 
 const callbacks = [
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Response, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
         await interaction.editReply({
             embeds: [{
                 title: 'Mod Application',
@@ -32,7 +32,7 @@ const callbacks = [
 
         return [response, true];
     },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Response, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
         if (message !== undefined) {
             response.name = message.content;
             await message.delete();
@@ -47,7 +47,7 @@ const callbacks = [
 
         return [response, true];
     },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
+    async (interaction: ChatInputCommandInteraction, message: Message | undefined, response: Response, isSuccess: boolean, collector: any): Promise<CallbackReturn> => {
         if (message !== undefined) {
             response.reason = message.content;
             await message.delete();
@@ -67,12 +67,12 @@ const callbacks = [
                     }
                 ]
             }],
-            components: [new MessageActionRow()
+            components: [new ActionRowBuilder()
                 .addComponents([yesButton, noButton])]
         }) as Message;
 
         const componentCollector = reply.createMessageComponentCollector({
-            componentType: 'BUTTON',
+            componentType: ComponentType.Button,
             filter: interactor => interactor.user.id === interaction.user.id,
             idle: 30000
         })
@@ -102,7 +102,7 @@ const callbacks = [
                 const disabled = reply.components[0].components;
                 disabled.forEach(component => component.setDisabled(true));
                 await interaction.editReply({
-                    components: [new MessageActionRow()
+                    components: [new ActionRowBuilder()
                         .setComponents(disabled)]
                 });
             });
@@ -112,7 +112,7 @@ const callbacks = [
 
     }];
 
-async function questionsLifecycle(interaction: CommandInteraction) {
+async function questionsLifecycle(interaction: ChatInputCommandInteraction) {
     ID_STATES[interaction.user.id] = 0;
     let response: Response = {
         discordId: interaction.user.id,

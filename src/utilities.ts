@@ -1,13 +1,12 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
 import Prisma from '@prisma/client';
-import { CacheType, Collection, CommandInteraction } from 'discord.js';
-import { ModalSubmitInteraction } from 'discord-modals';
+import { ApplicationCommandOptionType, CacheType, Collection, ChatInputCommandInteraction, ModalSubmitInteraction, Interaction, InteractionType } from 'discord.js';
 
 import fs from 'fs';
 import path from 'path';
 import { Guild } from './models/guild.js';
 
-import { Command, CommandGroup, ModalHandlerType, Permissions, SubCommand, SubCommandGroup } from './types.js';
+import { Command, CommandGroup, HandledInteractions, ModalHandlerType, Permissions, SubCommand, SubCommandGroup } from './types.js';
 
 /**
  * Given a filename and a directory, returns an iterator allowing module iteration
@@ -28,9 +27,9 @@ export function* directoryFiles<T>(filename: string, directory: string) {
  * @param description The description of this command
  * @returns A well-defined object associated with this command type
  */
-export function createCommand(name: string, description: string, permission: Permissions,
+export function createCommand<T extends Interaction>(name: string, description: string, permission: Permissions,
     subcommandBuilderCallback: (builder: SlashCommandBuilder) => SlashCommandBuilder,
-    interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): Command {
+    interactionCallback: (interaction: HandledInteractions<T>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): Command<T> {
     let command = {
         data: subcommandBuilderCallback(new SlashCommandBuilder()
             .setName(name)
@@ -58,22 +57,23 @@ export function createCommand(name: string, description: string, permission: Per
  * @param interactionCallback A callback when this command group is executed (Subcommand handling is done after this callback)
  * @returns A well-defined object associated with this command type, with an empty `subcommands` collection
  */
-export async function createCommandGroup(name: string, description: string, permission: Permissions, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<CommandGroup> {
+export async function createCommandGroup<T extends Interaction>(name: string, description: string, permission: Permissions, filename: string,
+    interactionCallback: (interaction: HandledInteractions<T>) => Promise<any> = (_) => Promise.resolve()): Promise<CommandGroup<T>> {
     let command = {
         data: new SlashCommandBuilder()
             .setName(name)
             .setDescription(description),
         permission: permission,
-        subcommands: new Collection<string, SubCommandGroup | SubCommand>(),
+        subcommands: new Collection<string, SubCommandGroup<T> | SubCommand<T>>(),
         subHandlers: new Collection<string, ModalHandlerType>(),
-        execute: async (interaction: CommandInteraction<CacheType>) => {
+        execute: async (interaction: HandledInteractions<T>) => {
             interactionCallback(interaction);
 
             const options = interaction.options.data;
 
-            if (options[0].type === 'SUB_COMMAND')
+            if (options[0].type === ApplicationCommandOptionType.Subcommand)
                 command.subcommands.get(interaction.options.getSubcommand() as string)?.execute(interaction);
-            else if (options[0].type === 'SUB_COMMAND_GROUP')
+            else if (options[0].type === ApplicationCommandOptionType.SubcommandGroup)
                 command.subcommands.get(interaction.options.getSubcommandGroup() as string)?.execute(interaction);
             else
                 await interaction.reply({ content: 'It seems that you\'ve entered an invalid command.\n Please try again.', ephemeral: true });
@@ -90,17 +90,18 @@ export async function createCommandGroup(name: string, description: string, perm
     Object.defineProperty(command, "modalHandler",
         {
             value: async (modal: ModalSubmitInteraction, partitionId: string) => {
+
                 let categorySeparatorIndex = partitionId.indexOf(' ');
-                let nextHandlerId = modal.customId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex - 1);
-                let subPartitionId = categorySeparatorIndex === -1 ? modal.customId : modal.customId.substring(categorySeparatorIndex + 1);
+                let nextHandlerId = partitionId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex);
+                let subPartitionId = categorySeparatorIndex === -1 ? partitionId : partitionId.substring(categorySeparatorIndex + 1);
 
                 if (categorySeparatorIndex === -1)
-                    throw `In Command Group '${name}'. The modal with id '${modal.customId}' does not have an appropriate handler.`;
+                    throw `In Command Group '${name}'. The modal with id '${partitionId}' does not have an appropriate handler.`;
 
                 let handler = command.subcommands.get(nextHandlerId);
 
                 if (handler === undefined || handler.modalHandler === undefined)
-                    throw `In Command Group '${name}'. The modal with id '${modal.customId}' does not match with any subcommands/subcommand groups within the group.`;
+                    throw `In Command Group '${name}'. The modal with id '${partitionId}' does not match with any subcommands/subcommand groups within the group.`;
 
                 // It's now confirmed that there's a subcommand handler
                 await handler.modalHandler(modal, subPartitionId);
@@ -119,7 +120,7 @@ export async function createCommandGroup(name: string, description: string, perm
  * @param interactionCallback A callback when this command group is executed (Subcommand handling has been handled)
  * @returns A well-defined object associated with this command type
  */
-export async function createSubCommandGroup(name: string, description: string, filename: string, interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<SubCommandGroup> {
+export async function createSubCommandGroup(name: string, description: string, filename: string, interactionCallback: (interaction: ChatInputCommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<SubCommandGroup> {
     let command = {
         data: new SlashCommandSubcommandGroupBuilder()
             .setName(name)
@@ -129,7 +130,7 @@ export async function createSubCommandGroup(name: string, description: string, f
         },
         subcommands: new Collection<string, SubCommand>(),
         subHandlers: new Collection<string, ModalHandlerType>(),
-        execute: async (interaction: CommandInteraction<CacheType>) => {
+        execute: async (interaction: ChatInputCommandInteraction<CacheType>) => {
             interactionCallback(interaction);
 
             const subcommand = interaction.options.getSubcommand();
@@ -151,16 +152,16 @@ export async function createSubCommandGroup(name: string, description: string, f
         {
             value: async (modal: ModalSubmitInteraction, partitionId: string) => {
                 let categorySeparatorIndex = partitionId.indexOf(' ');
-                let nextHandlerId = modal.customId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex - 1);
-                let subPartitionId = categorySeparatorIndex === -1 ? modal.customId : modal.customId.substring(categorySeparatorIndex + 1);
+                let nextHandlerId = partitionId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex);
+                let subPartitionId = categorySeparatorIndex === -1 ? partitionId : partitionId.substring(categorySeparatorIndex + 1);
 
-                if (categorySeparatorIndex === -1)
-                    throw `In Subcommand Group '${name}'. The modal with id '${modal.customId}' does not have an appropriate handler.`;
+                if (categorySeparatorIndex !== -1)
+                    throw `In Subcommand Group '${name}'. The modal with id '${partitionId}' has whitespaces.`;
 
                 let handler = command.subcommands.get(nextHandlerId);
 
                 if (handler === undefined || handler.modalHandler === undefined)
-                    throw `In Subcommand Group '${name}'. The modal with id '${modal.customId}' does not match with any subcommands within the group.`;
+                    throw `In Subcommand Group '${name}'. The modal with id '${partitionId}' does not match with any subcommands within the group.`;
 
                 // It's now confirmed that there's a subcommand handler
                 await handler.modalHandler(modal, subPartitionId);
@@ -180,7 +181,7 @@ export async function createSubCommandGroup(name: string, description: string, f
  */
 export function createSubCommand(name: string, description: string,
     subcommandBuilderCallback: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder,
-    interactionCallback: (interaction: CommandInteraction<CacheType>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): SubCommand {
+    interactionCallback: (interaction: ChatInputCommandInteraction<CacheType>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): SubCommand {
     const command = {
         data: subcommandBuilderCallback(new SlashCommandSubcommandBuilder()
             .setName(name)
@@ -202,7 +203,7 @@ export function createSubCommand(name: string, description: string,
 }
 
 export function unimplementedCommandCallback() {
-    return async (interaction: CommandInteraction<CacheType>) => {
+    return async (interaction: ChatInputCommandInteraction<CacheType>) => {
         await interaction.reply({ content: `Unfortunately, this command hasn't been implemented yet. Come back on the next bot update!`, ephemeral: true });
     };
 }
