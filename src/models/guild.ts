@@ -560,13 +560,13 @@ export class Guild {
     async addUnverifiedStudent(fields: SelectivePartial<Student, 'remindTime'> & { guildId: string; }) {
         const { guildId, ...studentFields } = fields;
 
-        const student = prisma.student.findUnique({
+        const student = await prisma.student.findUnique({
             where: {
                 discordId: studentFields.discordId
             }
         });
 
-        if (student !== undefined) {
+        if (student !== null) {
             await prisma.student.update({
                 where: {
                     discordId: studentFields.discordId

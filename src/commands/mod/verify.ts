@@ -48,7 +48,7 @@ const command = createSubCommand('verify', 'Verifies a member',
 
         const student = await prisma.student.findUnique({
             where: {
-                discordId: interaction.user.id
+                discordId: discordId
             }
         });
 
@@ -76,7 +76,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                 },
                 {
                     name: 'Discord Tag',
-                    value: `\`${interaction.user.tag}\'`,
+                    value: `\`${member.user.tag}\'`,
                     inline: true
                 },
                 {
