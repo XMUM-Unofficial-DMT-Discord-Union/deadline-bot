@@ -81,7 +81,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                 },
                 {
                     name: 'Discord Tag',
-                    value: `\`${interaction.user.tag}\'`,
+                    value: `\`${member.user.tag}\'`,
                     inline: true
                 },
                 {
