@@ -7,6 +7,9 @@
  - Many-to-Many Relationship between Student and Course
  - To move whole database to another server, do [pg_dumpall](https://www.postgresql.org/docs/12/app-pg-dumpall.html)
  - Modify server to follow these [rules](https://www.prisma.io/docs/concepts/components/prisma-migrate#production-and-testing-environments)
+ - Optionally choose a channel to:
+   - Show audit logs
+   - Show as notification of various applications, suggestions, reports (including verifications)
 
 /admin (subcommand)
  * mod
