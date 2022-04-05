@@ -598,8 +598,13 @@ export class Guild {
             data: {
                 ...studentFields,
                 guilds: {
-                    create: {
-                        id: guildId
+                    connectOrCreate: {
+                        where: {
+                            id: guildId
+                        },
+                        create: {
+                            id: guildId
+                        }
                     }
                 },
                 studentsToRoles: {
