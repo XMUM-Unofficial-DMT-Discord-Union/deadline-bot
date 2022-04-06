@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
 import Prisma from '@prisma/client';
-import { ApplicationCommandOptionType, CacheType, Collection, ChatInputCommandInteraction, ModalSubmitInteraction, Interaction, InteractionType, MessageComponentInteraction, CommandInteraction } from 'discord.js';
+import { ApplicationCommandOptionType, CacheType, Collection, ChatInputCommandInteraction, ModalSubmitInteraction, Interaction, InteractionType, MessageComponentInteraction, CommandInteraction, Message } from 'discord.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -221,6 +221,33 @@ export function createSubCommand(name: string, description: string,
             });
 
     return command;
+}
+
+/**
+ * Creates a MessageComponentCollector and edits the existing reply from `interaction` when a component interaction is done
+ * @param interaction The interaction that replied to the user
+ */
+export async function messageComponentCloseCollector(interaction: ChatInputCommandInteraction) {
+    const message = await interaction.fetchReply() as Message;
+    const collector = await message.createMessageComponentCollector({ filter: newInteraction => newInteraction.user.id === interaction.user.id })
+        .on('collect', async _ => {
+            if (interaction.replied)
+                await interaction.editReply({ embeds: [], components: [], content: `You can now close this message!` });
+            collector.stop();
+        });
+}
+
+/**
+ * Resolves a custom id for commands that require setting custom ids in their components.
+ * This is used specifically to allow dynamic components handling.
+ * Note that file names should not contain '/' or '\'
+ * @param pathname The caller's full file path
+ * @returns A base custom id. Note that all base custom id's are relative to the `./commands` directory
+ */
+export function resolveBaseCustomId(pathname: string) {
+    const customId = path.relative(path.join(path.dirname(import.meta.url), 'commands'), pathname);
+
+    return customId.replaceAll(path.sep, ' ').replace(path.extname(customId), '');
 }
 
 export function unimplementedCommandCallback() {

@@ -1,5 +1,3 @@
-import { AutocompleteInteraction } from 'discord.js';
-
 import { createSubCommand, GUILD, prisma } from '../../../utilities.js';
 
 const command = createSubCommand('remove', 'Removes a course',

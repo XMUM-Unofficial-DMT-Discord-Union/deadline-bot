@@ -1,7 +1,9 @@
 import { Message, ActionRowBuilder, SelectMenuBuilder, ComponentType, Colors } from 'discord.js';
 
 import { Course, Deadline } from '@prisma/client';
-import { createSubCommand, GUILD } from '../../../utilities.js';
+import { createSubCommand, GUILD, resolveBaseCustomId } from '../../../utilities.js';
+
+const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
 
 function courseReplyOptions() {
     return {
@@ -11,7 +13,7 @@ function courseReplyOptions() {
         components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents((() => {
                 const menu = new SelectMenuBuilder()
-                    .setCustomId('course');
+                    .setCustomId(GLOBAL_CUSTOMID + ' course');
 
                 let hasValue = false;
                 for (let course of Object.values(GUILD.getAllCourses())) {
@@ -40,7 +42,7 @@ function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
         }], components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents((() => {
                 const menu = new SelectMenuBuilder()
-                    .setCustomId('choose_deadline');
+                    .setCustomId(GLOBAL_CUSTOMID + ' choose_deadline');
 
                 for (let deadline of course.deadlines) {
                     menu.addOptions({
@@ -83,7 +85,7 @@ const command = createSubCommand('delete', 'Deletes a deadline',
             idle: 30000
         })
             .on('collect', async componentInteraction => {
-                if (componentInteraction.customId === 'course') {
+                if (componentInteraction.customId === GLOBAL_CUSTOMID + ' course') {
                     const course = await GUILD.getCourse(componentInteraction.values[0], { deadlines: true });
                     response.course = await GUILD.getCourse(componentInteraction.values[0], { deadlines: true }) as unknown as Course;
 
@@ -91,7 +93,7 @@ const command = createSubCommand('delete', 'Deletes a deadline',
                         ...deadlineReplyOptions(response.course)
                     });
                 }
-                else if (componentInteraction.customId === 'choose_deadline') {
+                else if (componentInteraction.customId === GLOBAL_CUSTOMID + ' choose_deadline') {
                     collector.stop();
 
                     await GUILD.removeDeadlineFromCourse(response.course.name, componentInteraction.values[0]);
@@ -105,6 +107,10 @@ const command = createSubCommand('delete', 'Deletes a deadline',
                     });
                 }
             });
+    },
+    undefined,
+    async componentInteraction => {
+
     });
 
 export default command;

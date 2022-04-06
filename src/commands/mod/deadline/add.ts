@@ -2,7 +2,7 @@ import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, 
 import { Course } from '@prisma/client';
 import dayjs from 'dayjs';
 
-import { createSubCommand, GUILD } from '../../../utilities.js';
+import { createSubCommand, GUILD, messageComponentCloseCollector, resolveBaseCustomId } from '../../../utilities.js';
 import { TextInputBuilder } from '@discordjs/builders';
 
 const CUSTOMID = {
@@ -16,6 +16,8 @@ const ID_TO_COURSE: {
     [id: string]: Course;
 } = {};
 
+const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
+
 async function courseReplyOptions() {
     return {
         embeds: [{
@@ -24,7 +26,7 @@ async function courseReplyOptions() {
         components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents(await (async () => {
                 const menu = new SelectMenuBuilder()
-                    .setCustomId('mod deadline add');
+                    .setCustomId(GLOBAL_CUSTOMID);
 
                 if ((await GUILD.getAllCourses()).length === 0)
                     throw 'No courses.';
@@ -52,8 +54,10 @@ async function chooseCourseLifecycle(interaction: ChatInputCommandInteraction) {
     // If the above does not throw an error, there's deadlines available to delete
     await interaction.reply({
         ...await courseReplyOptions(),
-        fetchReply: true, ephemeral: true
-    }) as Message;
+        ephemeral: true
+    });
+
+    await messageComponentCloseCollector(interaction);
 }
 
 
@@ -104,7 +108,7 @@ const command = createSubCommand('add', 'Adds a deadline',
                     return;
 
                 let newModal = new ModalBuilder()
-                    .setCustomId('mod deadline add')
+                    .setCustomId(GLOBAL_CUSTOMID)
                     .setTitle('Add Deadline')
                     .addComponents(
                         new ActionRowBuilder<TextInputBuilder>()
@@ -158,7 +162,7 @@ const command = createSubCommand('add', 'Adds a deadline',
             ID_TO_COURSE[componentInteraction.user.id] = await GUILD.getCourse(componentInteraction.values[0], undefined) as Course;
 
             let modal = new ModalBuilder()
-                .setCustomId('mod deadline add')
+                .setCustomId(GLOBAL_CUSTOMID)
                 .setTitle('Add Deadline')
                 .addComponents(
                     new ActionRowBuilder({
