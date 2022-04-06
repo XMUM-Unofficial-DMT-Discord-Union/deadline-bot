@@ -13,7 +13,9 @@ const command = createSubCommand('ban', 'Bans a member',
             .setDescription('The reason for banning him/her')
             .setRequired(false)),
     async interaction => {
-        const targetMember = interaction.options.getMember('user', true) as GuildMember;
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
+        const targetMember = interaction.options.getMember('user') as GuildMember;
 
         if (targetMember.user.bot)
             await interaction.reply({ content: `${targetMember.displayName} is a bot, and bots can't be banned!`, ephemeral: true });
@@ -21,7 +23,7 @@ const command = createSubCommand('ban', 'Bans a member',
             const days = interaction.options.getNumber('days', true);
             const reason = interaction.options.getString('reason', false);
             await targetMember.ban({
-                days: days === 0 ? undefined : days,
+                deleteMessageDays: days === 0 ? undefined : days,
                 reason: reason === null ? undefined : reason
             });
 

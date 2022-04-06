@@ -1,42 +1,42 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from "@discordjs/builders";
-import { CacheType, Collection, ModalSubmitInteraction, Interaction } from "discord.js";
+import { CacheType, Collection, ModalSubmitInteraction, MessageComponentInteraction, ChatInputCommandInteraction, AutocompleteInteraction } from "discord.js";
 
-export type ModalHandlerType = (modal: ModalSubmitInteraction<CacheType>, partitionId: string) => Promise<any>;
+export type ModalHandlerType = (modal: ModalSubmitInteraction<CacheType> | MessageComponentInteraction<CacheType>, partitionId: string) => Promise<any>;
 
-export type HandledInteractions<T extends Interaction> = T extends ModalSubmitInteraction ? never : Omit<T, 'isModalSubmit'>;
+export type HandledInteractions = ChatInputCommandInteraction | AutocompleteInteraction;
 
 // Defines the structure of each command
-export type Command<T extends Interaction> = {
+export type Command = {
     data: SlashCommandBuilder;
     permission?: Permissions;
-    execute(interaction: HandledInteractions<T>): Promise<any>;
+    execute(interaction: HandledInteractions): Promise<any>;
     modalId?: string;
     modalHandler?: ModalHandlerType;
 };
 
 // Defines a group of Subcommands branching from a single Command
-export type CommandGroup<T extends Interaction> = Command<T> & {
-    subcommands: Collection<string, SubCommandGroup<T> | SubCommand<T>>;
+export type CommandGroup = Command & {
+    subcommands: Collection<string, SubCommandGroup | SubCommand>;
     subHandlers: Collection<string, ModalHandlerType>;
 };
 
 // Defines a group of (sub)commands
-export type SubCommandGroup<T extends Interaction> = {
+export type SubCommandGroup = {
     data: SlashCommandSubcommandGroupBuilder;
     permission?: Permissions;
-    bindTo(command: CommandGroup<T>): void;
-    subcommands: Collection<string, SubCommand<T>>;
+    bindTo(command: CommandGroup): void;
+    subcommands: Collection<string, SubCommand>;
     subHandlers: Collection<string, ModalHandlerType>;
-    execute<T extends Interaction>(interaction: HandledInteractions<T>): Promise<any>;
+    execute(interaction: HandledInteractions): Promise<any>;
     modalHandler?: ModalHandlerType;
 };
 
 // Defines the structure of each Subcommand
-export type SubCommand<T extends Interaction> = {
+export type SubCommand = {
     data: SlashCommandSubcommandBuilder;
     permission?: Permissions;
-    bindTo(command: CommandGroup<T> | SubCommandGroup<T>): void;
-    execute<T extends Interaction>(interaction: HandledInteractions<T>): Promise<any>;
+    bindTo(command: CommandGroup | SubCommandGroup): void;
+    execute(interaction: HandledInteractions): Promise<any>;
     modalHandler?: ModalHandlerType;
 };
 

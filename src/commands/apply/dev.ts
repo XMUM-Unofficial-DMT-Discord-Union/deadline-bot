@@ -1,5 +1,5 @@
 import { Application } from '@prisma/client';
-import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, TextBasedChannel } from 'discord.js';
+import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, TextBasedChannel, ButtonStyle, ComponentType, ButtonComponent, Colors } from 'discord.js';
 
 import { createSubCommand, GUILD } from '../../utilities.js';
 
@@ -67,8 +67,8 @@ const callbacks = [
                     }
                 ]
             }],
-            components: [new ActionRowBuilder()
-                .addComponents([yesButton, noButton])]
+            components: [new ActionRowBuilder<ButtonBuilder>()
+                .addComponents(yesButton, noButton)]
         }) as Message;
 
         const componentCollector = reply.createMessageComponentCollector({
@@ -92,18 +92,17 @@ const callbacks = [
                     await interaction.editReply({
                         embeds: [{
                             title: 'Dev Application ✅',
-                            color: 'GREEN'
+                            color: Colors.Green
                         }]
                     });
                 }
             })
             .on('stop', async () => {
 
-                const disabled = reply.components[0].components;
-                disabled.forEach(component => component.setDisabled(true));
+                const disabled = reply.components[0].components.map(component => ButtonBuilder.from(component as ButtonComponent).setDisabled(true));
                 await interaction.editReply({
-                    components: [new ActionRowBuilder()
-                        .setComponents(disabled)]
+                    components: [new ActionRowBuilder<ButtonBuilder>()
+                        .setComponents(...disabled)]
                 });
             });
 
@@ -150,6 +149,8 @@ async function questionsLifecycle(interaction: ChatInputCommandInteraction) {
 
 const command = createSubCommand('dev', 'Apply to be a bot developer', (_) => _,
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         await questionsLifecycle(interaction);
     });
 

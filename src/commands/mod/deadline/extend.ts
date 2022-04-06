@@ -262,6 +262,8 @@ async function extendDeadlineLifecycle(interaction: ChatInputCommandInteraction,
 const command = createSubCommand('extend', 'Extends an existing deadline',
     builder => builder,
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         await chooseDeadlineLifecycle(interaction);
     });
 

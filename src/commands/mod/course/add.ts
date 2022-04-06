@@ -5,6 +5,8 @@ const command = createSubCommand('add', 'Adds a course',
         .setDescription('The name of the new course')
         .setRequired(true)),
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         const name = interaction.options.getString('name', true);
 
         const course = await GUILD.getCourse(name, undefined);

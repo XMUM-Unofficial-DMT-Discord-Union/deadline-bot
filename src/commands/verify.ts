@@ -12,35 +12,37 @@ const CUSTOMID = {
 const command = createCommand('verify', 'Helps us to validate that you are an XMUM Student!', Permissions.NOTVERIFIED,
     builder => builder,
     async interaction => {
-        const modal = new ModalBuilder()
-            .setCustomId('verify')
-            .setTitle('Verification Form')
-            .addComponents(
-                new ActionRowBuilder<TextInputBuilder>()
-                    .addComponents(
-                        new TextInputBuilder()
-                            .setCustomId(CUSTOMID.name)
-                            .setRequired(true)
-                            .setLabel('Full Student Name')
-                            .setPlaceholder('Your name here')
-                            .setStyle(TextInputStyle.Short),
-                        new TextInputBuilder()
-                            .setCustomId(CUSTOMID.id)
-                            .setRequired(true)
-                            .setLabel('Student ID')
-                            .setPlaceholder('Example: DMT1234123')
-                            .setStyle(TextInputStyle.Short),
-                        new TextInputBuilder()
-                            .setCustomId(CUSTOMID.batch)
-                            .setRequired(true)
-                            .setLabel('Batch Number')
-                            .setPlaceholder('Example: 2002')
-                            .setStyle(TextInputStyle.Short))
-            );
+        if (interaction.isChatInputCommand()) {
+            const modal = new ModalBuilder()
+                .setCustomId('verify')
+                .setTitle('Verification Form')
+                .addComponents(
+                    new ActionRowBuilder<TextInputBuilder>()
+                        .addComponents(
+                            new TextInputBuilder()
+                                .setCustomId(CUSTOMID.name)
+                                .setRequired(true)
+                                .setLabel('Full Student Name')
+                                .setPlaceholder('Your name here')
+                                .setStyle(TextInputStyle.Short),
+                            new TextInputBuilder()
+                                .setCustomId(CUSTOMID.id)
+                                .setRequired(true)
+                                .setLabel('Student ID')
+                                .setPlaceholder('Example: DMT1234123')
+                                .setStyle(TextInputStyle.Short),
+                            new TextInputBuilder()
+                                .setCustomId(CUSTOMID.batch)
+                                .setRequired(true)
+                                .setLabel('Batch Number')
+                                .setPlaceholder('Example: 2002')
+                                .setStyle(TextInputStyle.Short))
+                );
 
-        await interaction.showModal(modal);
+            await interaction.showModal(modal);
+        }
     },
-    async (modal: ModalSubmitInteraction) => {
+    async (modal) => {
 
         const name = modal.fields.getTextInputValue(CUSTOMID.name);
         const id = modal.fields.getTextInputValue(CUSTOMID.id);

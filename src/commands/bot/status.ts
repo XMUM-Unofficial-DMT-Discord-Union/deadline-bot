@@ -1,12 +1,14 @@
 import humanizeDuration from 'humanize-duration';
 
-import { Embed } from "@discordjs/builders";
+import { EmbedBuilder } from "@discordjs/builders";
 
 import { createSubCommand } from "../../utilities.js";
 
 const command = createSubCommand('status', 'Shows the current status of the bot', (_) => _, async (interaction) => {
+    if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
 
-    const embed = new Embed({
+
+    const embed = new EmbedBuilder({
         author: {
             name: interaction.guild?.me?.nickname as string,
         },

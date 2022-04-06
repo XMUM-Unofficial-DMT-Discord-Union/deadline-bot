@@ -361,6 +361,8 @@ async function editDeadlineLifecycle(interaction: ChatInputCommandInteraction, m
 const command = createSubCommand('edit', 'Edits an existing deadline',
     builder => builder,
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         await chooseDeadlineLifecycle(interaction)
             .catch(error => console.log(error));
     });

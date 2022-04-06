@@ -1,6 +1,6 @@
 import { Deadline, Student } from '@prisma/client';
 import dayjs from 'dayjs';
-import { Client, TextChannel } from 'discord.js';
+import { Client, Colors, TextChannel } from 'discord.js';
 import ms from 'ms';
 import { StringValue } from 'ms';
 import scheduler, { Job } from 'node-schedule';
@@ -79,9 +79,9 @@ export function scheduleDeadline(client: Client, courseName: string, deadline: D
                         embeds: [{
                             title: 'Deadline Reached!',
                             description: `${courseName} - ` + deadline.url === '' ? `${deadline.name}` : `[${deadline.name}](${deadline.url})`,
-                            color: '#ff0000',
+                            color: 16771680, // #ff0000
                             thumbnail: {
-                                url: client.user?.displayAvatarURL()
+                                url: client.user!.displayAvatarURL()
                             },
                             footer: {
                                 text: `Sent on ${new Date().toLocaleString()} with ❤️`
@@ -119,14 +119,14 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
                 embeds: [{
                     title: 'Your very own deadline reminder!',
                     description: `${courseName} - ` + deadline.url === '' ? `${deadline.name}` : `[${deadline.name}](${deadline.url})`,
-                    color: '#ff0000',
+                    color: 16771680, // #ff0000
                     fields: [{
                         name: 'Time of Deadline',
                         value: deadline.datetime.toLocaleString(),
                         inline: true
                     }],
                     thumbnail: {
-                        url: client.user?.displayAvatarURL()
+                        url: client.user!.displayAvatarURL()
                     },
                     footer: {
                         text: `Sent on ${new Date().toLocaleString()} with ❤️`
@@ -153,14 +153,14 @@ export function scheduleReminders(client: Client, courseName: string, deadline: 
                 embeds: [{
                     title: 'Deadline is in a few inches away!',
                     description: `${courseName} - ` + deadline.url === '' ? `${deadline.name}` : `[${deadline.name}](${deadline.url})`,
-                    color: '#ff0000',
+                    color: 16771680, // #ff0000
                     fields: [{
                         name: 'Time of Deadline',
                         value: deadline.datetime.toLocaleString(),
                         inline: true
                     }],
                     thumbnail: {
-                        url: client.user?.displayAvatarURL()
+                        url: client.user!.displayAvatarURL()
                     },
                     footer: {
                         text: `Sent on ${new Date().toLocaleString()} with ❤️`

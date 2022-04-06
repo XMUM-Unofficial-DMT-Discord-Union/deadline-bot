@@ -7,7 +7,9 @@ const command = createSubCommand('remove', 'Removes an admin',
     (builder) => builder.addUserOption(option => option.setName('target_user')
         .setDescription('The user to remove from being an admin')
         .setRequired(true)), async interaction => {
-            const targetMember = interaction.options.getMember('target_user', true) as GuildMember;
+            if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
+            const targetMember = interaction.options.getMember('target_user') as GuildMember;
 
             const adminId = (await GUILD.getAdminRole(interaction.guildId as string, interaction.client)).id;
 

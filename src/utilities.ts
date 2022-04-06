@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
 import Prisma from '@prisma/client';
-import { ApplicationCommandOptionType, CacheType, Collection, ChatInputCommandInteraction, ModalSubmitInteraction, Interaction, InteractionType } from 'discord.js';
+import { ApplicationCommandOptionType, CacheType, Collection, ChatInputCommandInteraction, ModalSubmitInteraction, Interaction, InteractionType, MessageComponentInteraction, CommandInteraction } from 'discord.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -27,9 +27,11 @@ export function* directoryFiles<T>(filename: string, directory: string) {
  * @param description The description of this command
  * @returns A well-defined object associated with this command type
  */
-export function createCommand<T extends Interaction>(name: string, description: string, permission: Permissions,
+export function createCommand(name: string, description: string, permission: Permissions,
     subcommandBuilderCallback: (builder: SlashCommandBuilder) => SlashCommandBuilder,
-    interactionCallback: (interaction: HandledInteractions<T>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): Command<T> {
+    interactionCallback: (interaction: HandledInteractions) => Promise<any>,
+    modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>,
+    messageComponentHandler?: (componentInteraction: MessageComponentInteraction) => Promise<any>): Command {
     let command = {
         data: subcommandBuilderCallback(new SlashCommandBuilder()
             .setName(name)
@@ -39,10 +41,20 @@ export function createCommand<T extends Interaction>(name: string, description: 
         modalId: name
     };
 
-    if (modalHandler !== undefined)
+    if (modalHandler !== undefined || messageComponentHandler !== undefined)
         Object.defineProperty(command, "modalHandler",
             {
-                value: async (modal: ModalSubmitInteraction, _: string) => modalHandler(modal),
+                value: async (interaction: ModalSubmitInteraction | MessageComponentInteraction, _: string) => {
+                    if (interaction.isModalSubmit()) {
+                        if (modalHandler === undefined)
+                            throw `Command name \`${name}\` does not have a modal handler.`;
+                        return modalHandler(interaction);
+                    }
+
+                    if (messageComponentHandler === undefined)
+                        throw 'Command name \`${name}\` does not have a message component handler.`';
+                    return messageComponentHandler(interaction);
+                },
                 writable: true
             });
 
@@ -57,17 +69,15 @@ export function createCommand<T extends Interaction>(name: string, description: 
  * @param interactionCallback A callback when this command group is executed (Subcommand handling is done after this callback)
  * @returns A well-defined object associated with this command type, with an empty `subcommands` collection
  */
-export async function createCommandGroup<T extends Interaction>(name: string, description: string, permission: Permissions, filename: string,
-    interactionCallback: (interaction: HandledInteractions<T>) => Promise<any> = (_) => Promise.resolve()): Promise<CommandGroup<T>> {
+export async function createCommandGroup(name: string, description: string, permission: Permissions, filename: string): Promise<CommandGroup> {
     let command = {
         data: new SlashCommandBuilder()
             .setName(name)
             .setDescription(description),
         permission: permission,
-        subcommands: new Collection<string, SubCommandGroup<T> | SubCommand<T>>(),
+        subcommands: new Collection<string, SubCommandGroup | SubCommand>(),
         subHandlers: new Collection<string, ModalHandlerType>(),
-        execute: async (interaction: HandledInteractions<T>) => {
-            interactionCallback(interaction);
+        execute: async (interaction: HandledInteractions) => {
 
             const options = interaction.options.data;
 
@@ -76,7 +86,7 @@ export async function createCommandGroup<T extends Interaction>(name: string, de
             else if (options[0].type === ApplicationCommandOptionType.SubcommandGroup)
                 command.subcommands.get(interaction.options.getSubcommandGroup() as string)?.execute(interaction);
             else
-                await interaction.reply({ content: 'It seems that you\'ve entered an invalid command.\n Please try again.', ephemeral: true });
+                await (interaction as ChatInputCommandInteraction).reply({ content: 'It seems that you\'ve entered an invalid command.\n Please try again.', ephemeral: true });
         },
         modalId: name
     };
@@ -120,7 +130,7 @@ export async function createCommandGroup<T extends Interaction>(name: string, de
  * @param interactionCallback A callback when this command group is executed (Subcommand handling has been handled)
  * @returns A well-defined object associated with this command type
  */
-export async function createSubCommandGroup(name: string, description: string, filename: string, interactionCallback: (interaction: ChatInputCommandInteraction<CacheType>) => Promise<any> = (_) => Promise.resolve()): Promise<SubCommandGroup> {
+export async function createSubCommandGroup(name: string, description: string, filename: string): Promise<SubCommandGroup> {
     let command = {
         data: new SlashCommandSubcommandGroupBuilder()
             .setName(name)
@@ -130,13 +140,12 @@ export async function createSubCommandGroup(name: string, description: string, f
         },
         subcommands: new Collection<string, SubCommand>(),
         subHandlers: new Collection<string, ModalHandlerType>(),
-        execute: async (interaction: ChatInputCommandInteraction<CacheType>) => {
-            interactionCallback(interaction);
+        execute: async (interaction: HandledInteractions) => {
 
             const subcommand = interaction.options.getSubcommand();
 
             if (!subcommand)
-                await interaction.reply({ content: 'It seems that you\'ve entered an invalid command.\n Please try again.', ephemeral: true });
+                await (interaction as ChatInputCommandInteraction).reply({ content: 'It seems that you\'ve entered an invalid command.\n Please try again.', ephemeral: true });
             else
                 command.subcommands.get(subcommand)?.execute(interaction);
         },
@@ -181,7 +190,9 @@ export async function createSubCommandGroup(name: string, description: string, f
  */
 export function createSubCommand(name: string, description: string,
     subcommandBuilderCallback: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder,
-    interactionCallback: (interaction: ChatInputCommandInteraction<CacheType>) => Promise<any>, modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>): SubCommand {
+    interactionCallback: (interaction: HandledInteractions) => Promise<any>,
+    modalHandler?: (modal: ModalSubmitInteraction) => Promise<any>,
+    messageComponentHandler?: (componentInteraction: MessageComponentInteraction) => Promise<any>): SubCommand {
     const command = {
         data: subcommandBuilderCallback(new SlashCommandSubcommandBuilder()
             .setName(name)
@@ -192,10 +203,20 @@ export function createSubCommand(name: string, description: string,
         execute: interactionCallback,
     };
 
-    if (modalHandler !== undefined)
+    if (modalHandler !== undefined || messageComponentHandler !== undefined)
         Object.defineProperty(command, "modalHandler",
             {
-                value: async (modal: ModalSubmitInteraction, _: string) => modalHandler(modal),
+                value: async (interaction: ModalSubmitInteraction | MessageComponentInteraction, _: string) => {
+                    if (interaction.isModalSubmit()) {
+                        if (modalHandler === undefined)
+                            throw `Command name \`${name}\` does not have a modal handler.`;
+                        return modalHandler(interaction);
+                    }
+
+                    if (messageComponentHandler === undefined)
+                        throw 'Command name \`${name}\` does not have a message component handler.`';
+                    return messageComponentHandler(interaction);
+                },
                 writable: true
             });
 
@@ -203,8 +224,8 @@ export function createSubCommand(name: string, description: string,
 }
 
 export function unimplementedCommandCallback() {
-    return async (interaction: ChatInputCommandInteraction<CacheType>) => {
-        await interaction.reply({ content: `Unfortunately, this command hasn't been implemented yet. Come back on the next bot update!`, ephemeral: true });
+    return async (interaction: HandledInteractions) => {
+        await (interaction as ChatInputCommandInteraction).reply({ content: `Unfortunately, this command hasn't been implemented yet. Come back on the next bot update!`, ephemeral: true });
     };
 }
 

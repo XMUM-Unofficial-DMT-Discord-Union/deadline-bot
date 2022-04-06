@@ -57,6 +57,8 @@ function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
 const command = createSubCommand('delete', 'Deletes a deadline',
     builder => builder,
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         const response: any = {};
 
 

@@ -28,7 +28,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                 where: {
                     guilds: {
                         some: {
-                            id: (interaction as AutocompleteInteraction)?.guildId as string
+                            id: interaction.guildId as string
                         }
                     },
                     studentsToRoles: {
@@ -40,7 +40,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                     }
                 }
             });
-            await (interaction as AutocompleteInteraction).respond(users.map(student => { return { name: student.name, value: student.discordId }; }));
+            await interaction.respond(users.map(student => { return { name: student.name, value: student.discordId }; }));
             return;
         }
 

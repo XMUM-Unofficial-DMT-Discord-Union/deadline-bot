@@ -9,8 +9,7 @@ const command = createSubCommand('remove', 'Removes a course',
         .setAutocomplete(true)),
     async interaction => {
         if (interaction.isAutocomplete()) {
-            await (interaction as AutocompleteInteraction)
-                .respond((await GUILD.getAllCourses()).map(course => { return { name: course.name, value: course.name }; }));
+            await interaction.respond((await GUILD.getAllCourses()).map(course => { return { name: course.name, value: course.name }; }));
             return;
         }
 

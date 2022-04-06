@@ -7,6 +7,8 @@ const command = createSubCommand('rolename', 'Sets the rolename of Admin',
             .setDescription('The nickname of the bot')
             .setRequired(true)),
     async (interaction) => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         const rolename = interaction.options.getString('name', true);
 
         const id = (await GUILD.getAdminRole(interaction.guildId as string, interaction.client)).id;

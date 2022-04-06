@@ -1,5 +1,5 @@
 import { REST } from '@discordjs/rest';
-import { ApplicationCommandPermissionType, RESTGetAPICurrentUserGuildsResult, RESTGetAPIGuildRolesResult, RESTPostAPIApplicationCommandsJSONBody, RESTPostAPIGuildRoleResult, RESTPutAPIApplicationGuildCommandsResult, Routes } from 'discord-api-types/v9';
+import { ApplicationCommandPermissionType, RESTGetAPICurrentUserGuildsResult, RESTGetAPIGuildRolesResult, RESTPostAPIApplicationCommandsJSONBody, RESTPostAPIGuildRoleResult, RESTPutAPIApplicationGuildCommandsResult, Routes } from 'discord-api-types/v10';
 import { exit } from 'process';
 
 import Commands from './commands.js';
