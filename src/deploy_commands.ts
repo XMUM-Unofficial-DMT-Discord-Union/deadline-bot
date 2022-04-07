@@ -233,3 +233,5 @@ for (let guild of guilds) {
             console.error(error);
         });
 }
+
+client.destroy();

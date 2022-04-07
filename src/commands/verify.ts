@@ -55,7 +55,7 @@ const command = createCommand('verify', 'Helps us to validate that you are an XM
         const id = modal.fields.getTextInputValue(CUSTOMID.id);
         const batch = modal.fields.getTextInputValue(CUSTOMID.batch);
 
-        await GUILD.addUnverifiedStudent({
+        await GUILD.addUnverifiedStudent(modal.client, {
             name: name,
             id: id,
             enrolledBatch: batch,

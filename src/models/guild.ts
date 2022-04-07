@@ -1,5 +1,6 @@
-import { Client } from 'discord.js';
+import { Client, Colors, TextChannel, EmbedBuilder } from 'discord.js';
 import dayjs from 'dayjs';
+import moment from 'moment';
 
 import { cancelDeadline, cancelReminders, rescheduleDeadline, rescheduleReminders, scheduleDeadline, scheduleReminders } from '../scheduler.js';
 import { Course } from './course.js';
@@ -557,17 +558,20 @@ export class Guild {
      * @param fields 
      * @returns 
      */
-    async addUnverifiedStudent(fields: SelectivePartial<Student, 'remindTime'> & { guildId: string; }) {
+    async addUnverifiedStudent(client: Client, fields: SelectivePartial<Student, 'remindTime'> & { guildId: string; }) {
         const { guildId, ...studentFields } = fields;
 
         const student = await prisma.student.findUnique({
             where: {
                 discordId: studentFields.discordId
+            },
+            include: {
+                guilds: true
             }
         });
 
         if (student !== null) {
-            await prisma.student.update({
+            const updatedStudent = await prisma.student.update({
                 where: {
                     discordId: studentFields.discordId
                 },
@@ -586,20 +590,40 @@ export class Guild {
                         create: {
                             guildId: guildId,
                             roleType: 'UNVERIFIED'
-                        }
+                        },
+                        deleteMany: [{
+                            guildId: guildId,
+                            roleType: 'VERIFIED'
+                        }, {
+                            guildId: guildId,
+                            roleType: 'ADMIN'
+                        }, {
+                            guildId: guildId,
+                            roleType: 'DEV'
+                        }, {
+                            guildId: guildId,
+                            roleType: 'MOD'
+                        }]
                     }
                 }
             });
 
+            await this.notifyNewVerification(client, guildId, updatedStudent);
+
             return true;
         }
 
-        await prisma.student.create({
+        const newStudent = await prisma.student.create({
             data: {
                 ...studentFields,
                 guilds: {
-                    create: {
-                        id: guildId
+                    connectOrCreate: {
+                        where: {
+                            id: guildId
+                        },
+                        create: {
+                            id: guildId
+                        }
                     }
                 },
                 studentsToRoles: {
@@ -610,6 +634,8 @@ export class Guild {
                 }
             }
         });
+
+        await this.notifyNewVerification(client, guildId, newStudent);
 
         return true;
     }
@@ -633,6 +659,61 @@ export class Guild {
                     }
                 }
             }
+        });
+    }
+
+    async notifyNewVerification(client: Client, guildId: string, student: Student) {
+        const guild = await prisma.guild.findUnique({
+            where: {
+                id: guildId
+            }
+        });
+
+        if (guild === null)
+            throw 'Guild not in database.';
+
+        const guildDiscord = await client.guilds.resolve(guildId);
+
+        if (guildDiscord === null)
+            throw 'Guild does not exist for Client in `notifyNewVerification`.';
+
+        const ownerEmbed = new EmbedBuilder({
+            title: 'Verification Notification Channel Not Set',
+            description: `Please set a channel for new verification notifications!`,
+            color: Colors.Red,
+            author: {
+                name: client.user!.tag!,
+                icon_url: client.user!.displayAvatarURL()
+            },
+            footer: {
+                text: `Sent on ${new Date().toLocaleString()} with ❤️`
+            }
+        });
+
+        if (guild.verificationNotifyChannel === null) {
+            await (await (await guildDiscord.fetchOwner()).createDM()).send({
+                embeds: [ownerEmbed]
+            });
+            return;
+        }
+
+        const channel = await guildDiscord.channels.resolve(guild.verificationNotifyChannel)! as TextChannel;
+        const member = await guildDiscord.members.fetch(student.discordId);
+
+        const notificationEmbed = EmbedBuilder.from(ownerEmbed)
+            .setTitle(null)
+            .setDescription(
+                `• Username: ${member} (${member.id})
+                 •   Joined: ${member.joinedAt?.toLocaleString()} (${moment.duration(moment(member.joinedTimestamp!).diff(moment())).humanize(true)})
+                 •  Created: ${member.user.createdAt.toLocaleString()} (${moment.duration(moment(member.user.createdTimestamp).diff(moment())).humanize(true)})`)
+            .setColor(Colors.Yellow)
+            .setAuthor({
+                name: member.user.tag,
+                iconURL: member.displayAvatarURL()
+            });
+
+        await channel.send({
+            embeds: [notificationEmbed]
         });
     }
 
