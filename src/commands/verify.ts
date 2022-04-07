@@ -1,7 +1,7 @@
-import { Modal, showModal, TextInputComponent, ModalSubmitInteraction } from 'discord-modals';
-
+import { ActionRowBuilder, TextInputBuilder } from '@discordjs/builders';
+import { ModalBuilder, ModalSubmitInteraction, TextInputStyle } from 'discord.js';
 import { Permissions } from '../types.js';
-import { createCommand, GUILD } from '../utilities.js';
+import { createCommand, GUILD, resolveBaseCustomId } from '../utilities.js';
 
 const CUSTOMID = {
     name: 'name',
@@ -9,44 +9,53 @@ const CUSTOMID = {
     batch: 'student_batch'
 };
 
+const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
+
 const command = createCommand('verify', 'Helps us to validate that you are an XMUM Student!', Permissions.NOTVERIFIED,
     builder => builder,
     async interaction => {
-        const modal = new Modal()
-            .setCustomId('verify')
-            .setTitle('Verification Form')
-            .addComponents(
-                new TextInputComponent()
-                    .setCustomId(CUSTOMID.name)
-                    .setRequired(true)
-                    .setLabel('Full Student Name')
-                    .setPlaceholder('Your name here')
-                    .setStyle('SHORT'),
-                new TextInputComponent()
-                    .setCustomId(CUSTOMID.id)
-                    .setRequired(true)
-                    .setLabel('Student ID')
-                    .setPlaceholder('Example: DMT1234123')
-                    .setStyle('SHORT'),
-                new TextInputComponent()
-                    .setCustomId(CUSTOMID.batch)
-                    .setRequired(true)
-                    .setLabel('Batch Number')
-                    .setPlaceholder('Example: 2002')
-                    .setStyle('SHORT'));
+        if (interaction.isChatInputCommand()) {
+            const modal = new ModalBuilder({
+                custom_id: GLOBAL_CUSTOMID,
+                title: 'Verification Form',
+                components: [
+                    new ActionRowBuilder<TextInputBuilder>()
+                        .addComponents(
+                            new TextInputBuilder()
+                                .setCustomId(CUSTOMID.name)
+                                .setRequired(true)
+                                .setLabel('Full Student Name')
+                                .setPlaceholder('Your name here')
+                                .setStyle(TextInputStyle.Short)).toJSON(),
+                    new ActionRowBuilder<TextInputBuilder>()
+                        .addComponents(
+                            new TextInputBuilder()
+                                .setCustomId(CUSTOMID.id)
+                                .setRequired(true)
+                                .setLabel('Student ID')
+                                .setPlaceholder('Example: DMT1234123')
+                                .setStyle(TextInputStyle.Short)).toJSON(),
+                    new ActionRowBuilder<TextInputBuilder>()
+                        .addComponents(
+                            new TextInputBuilder()
+                                .setCustomId(CUSTOMID.batch)
+                                .setRequired(true)
+                                .setLabel('Batch Number')
+                                .setPlaceholder('Example: 2002')
+                                .setStyle(TextInputStyle.Short)).toJSON()
+                ]
+            });
 
-        await showModal(modal, {
-            client: interaction.client,
-            interaction: interaction
-        });
+            await interaction.showModal(modal);
+        }
     },
-    async (modal: ModalSubmitInteraction) => {
+    async (modal) => {
 
-        const name = modal.getTextInputValue(CUSTOMID.name);
-        const id = modal.getTextInputValue(CUSTOMID.id);
-        const batch = modal.getTextInputValue(CUSTOMID.batch);
+        const name = modal.fields.getTextInputValue(CUSTOMID.name);
+        const id = modal.fields.getTextInputValue(CUSTOMID.id);
+        const batch = modal.fields.getTextInputValue(CUSTOMID.batch);
 
-        await GUILD.addUnverifiedStudent({
+        await GUILD.addUnverifiedStudent(modal.client, {
             name: name,
             id: id,
             enrolledBatch: batch,

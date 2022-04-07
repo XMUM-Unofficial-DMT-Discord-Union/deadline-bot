@@ -1,17 +1,19 @@
-import { Message, MessageActionRow, MessageSelectMenu } from 'discord.js';
+import { Message, ActionRowBuilder, SelectMenuBuilder, ComponentType, Colors } from 'discord.js';
 
 import { Course, Deadline } from '@prisma/client';
-import { createSubCommand, GUILD } from '../../../utilities.js';
+import { createSubCommand, GUILD, resolveBaseCustomId } from '../../../utilities.js';
+
+const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
 
 function courseReplyOptions() {
     return {
         embeds: [{
             title: 'Choose a course'
         }],
-        components: [new MessageActionRow()
-            .addComponents([(() => {
-                const menu = new MessageSelectMenu()
-                    .setCustomId('course');
+        components: [new ActionRowBuilder<SelectMenuBuilder>()
+            .addComponents((() => {
+                const menu = new SelectMenuBuilder()
+                    .setCustomId(GLOBAL_CUSTOMID + ' course');
 
                 let hasValue = false;
                 for (let course of Object.values(GUILD.getAllCourses())) {
@@ -29,7 +31,7 @@ function courseReplyOptions() {
                     throw 'No deadlines.';
 
                 return menu;
-            })()])]
+            })())]
     };
 }
 
@@ -37,10 +39,10 @@ function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
     return {
         embeds: [{
             title: 'Choose a deadline to delete.'
-        }], components: [new MessageActionRow()
+        }], components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents((() => {
-                const menu = new MessageSelectMenu()
-                    .setCustomId('choose_deadline');
+                const menu = new SelectMenuBuilder()
+                    .setCustomId(GLOBAL_CUSTOMID + ' choose_deadline');
 
                 for (let deadline of course.deadlines) {
                     menu.addOptions({
@@ -57,6 +59,8 @@ function deadlineReplyOptions(course: Course & { deadlines: Deadline[]; }) {
 const command = createSubCommand('delete', 'Deletes a deadline',
     builder => builder,
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         const response: any = {};
 
 
@@ -77,11 +81,11 @@ const command = createSubCommand('delete', 'Deletes a deadline',
 
         const collector = reply.createMessageComponentCollector({
             filter: component => component.user.id === interaction.user.id,
-            componentType: 'SELECT_MENU',
+            componentType: ComponentType.SelectMenu,
             idle: 30000
         })
             .on('collect', async componentInteraction => {
-                if (componentInteraction.customId === 'course') {
+                if (componentInteraction.customId === GLOBAL_CUSTOMID + ' course') {
                     const course = await GUILD.getCourse(componentInteraction.values[0], { deadlines: true });
                     response.course = await GUILD.getCourse(componentInteraction.values[0], { deadlines: true }) as unknown as Course;
 
@@ -89,7 +93,7 @@ const command = createSubCommand('delete', 'Deletes a deadline',
                         ...deadlineReplyOptions(response.course)
                     });
                 }
-                else if (componentInteraction.customId === 'choose_deadline') {
+                else if (componentInteraction.customId === GLOBAL_CUSTOMID + ' choose_deadline') {
                     collector.stop();
 
                     await GUILD.removeDeadlineFromCourse(response.course.name, componentInteraction.values[0]);
@@ -97,12 +101,16 @@ const command = createSubCommand('delete', 'Deletes a deadline',
                     await componentInteraction.update({
                         embeds: [{
                             title: 'Deadline Removed!',
-                            color: 'DARK_GREEN'
+                            color: Colors.DarkGreen
                         }],
                         components: []
                     });
                 }
             });
+    },
+    undefined,
+    async componentInteraction => {
+
     });
 
 export default command;

@@ -1,21 +1,13 @@
-import { MessageEmbedOptions } from 'discord.js';
+import { Colors } from 'discord.js';
 import ms, { StringValue } from 'ms';
 
 import { createSubCommand, prisma } from '../../utilities.js';
 
-function editReminderEmbed(newRemind: number): MessageEmbedOptions {
-    return {
-        title: 'Deadline Reminder Settings',
-        description: `Please enter a new remind time relative to any deadline.\n(Was \`${ms(newRemind)}\` before the deadline)`,
-        fields: [{
-            name: 'Input Format',
-            value: `Human-readable, e.g. \`1 hour\`, \`1 month\`, \`65 days\``
-        }]
-    };
-}
 const command = createSubCommand('settings', 'Change how you want your deadlines to be reminded.',
     builder => builder,
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
 
         const student = await prisma.student.findUnique({
             where: {
@@ -28,7 +20,16 @@ const command = createSubCommand('settings', 'Change how you want your deadlines
             return;
         }
 
-        await interaction.reply({ embeds: [editReminderEmbed(ms(student.remindTime as StringValue))], ephemeral: true });
+        await interaction.reply({
+            embeds: [{
+                title: 'Deadline Reminder Settings',
+                description: `Please enter a new remind time relative to any deadline.\n(Was \`${student.remindTime}\` before the deadline)`,
+                fields: [{
+                    name: 'Input Format',
+                    value: `Human-readable, e.g. \`1 hour\`, \`1 month\`, \`65 days\``
+                }]
+            }], ephemeral: true
+        });
 
         const collector = interaction.channel?.createMessageCollector({
             filter: message => message.author.id === interaction.user.id,
@@ -54,7 +55,7 @@ const command = createSubCommand('settings', 'Change how you want your deadlines
                 await interaction.editReply({
                     embeds: [{
                         title: 'Deadline Reminder Saved ✅',
-                        color: 'GREEN'
+                        color: Colors.Green
                     }]
                 });
 

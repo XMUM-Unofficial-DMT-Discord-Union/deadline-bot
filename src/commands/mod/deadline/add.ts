@@ -1,156 +1,74 @@
+import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, SelectMenuBuilder, SelectMenuInteraction, ComponentType, ModalBuilder, TextInputStyle, ButtonStyle, ModalSubmitInteraction } from 'discord.js';
 import { Course } from '@prisma/client';
 import dayjs from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import { CommandInteraction, Message, MessageActionRow, MessageButton, MessageCollector, MessageSelectMenu, TextBasedChannel } from 'discord.js';
-import { createSubCommand, GUILD } from '../../../utilities.js';
+import { createSubCommand, GUILD, messageComponentCloseCollector, resolveBaseCustomId } from '../../../utilities.js';
+import { TextInputBuilder } from '@discordjs/builders';
 
-type Response = {
-    name: string,
-    datetime: Date,
-    description: string,
-    url: string,
+/**
+ * As of 7th April 2022, there are no viable options to let users retry for modal resubmission
+ */
+
+const CUSTOMID = {
+    name: 'name', date: 'date',
+    description: 'description',
+    url: 'url'
 };
 
-type CallbackReturn = [Response, boolean];
+const ID_TO_COURSE: {
+    [id: string]: Course;
+} = {};
 
-const yesButton = new MessageButton()
-    .setCustomId('yes')
-    .setLabel('Yes')
-    .setStyle('PRIMARY');
+const ID_TO_DETAILS: {
+    [id: string]: { name: string, date: string, description: string, url: string; };
+} = {};
 
-const noButton = new MessageButton()
-    .setCustomId('no')
-    .setLabel('no')
-    .setStyle('PRIMARY');
+const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
 
-const skipButton = new MessageButton()
-    .setCustomId('skip')
-    .setLabel('skip')
-    .setStyle('SECONDARY');
-
-const callbacks = [
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
-        if (message !== undefined) {
-            response.name = message.content;
-            await message.delete();
-        }
-
-        await interaction.editReply({
-            embeds: [{
-                title: 'Add Deadline',
-                description: `Please enter the deadline name.`
-            }]
-        });
-
-        return [response, true];
-    },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
-        let hasMessage = message !== undefined;
-        if (hasMessage) {
-            response.name = message?.content as string;
-            await message?.delete();
-        }
-
-        await interaction.editReply({
-            embeds: [{
-                title: 'Add Deadline',
-                description: `Please enter the deadline date of this deadline.`,
-                color: hasMessage ? 'DEFAULT' : 'RED',
-                fields: [{
-                    name: 'Format',
-                    value: `\`DD/MM/YYYY, HH:mm:ss\``
-                }]
-            }]
-        });
-
-        return [response, true];
-    },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
-        if (message !== undefined) {
-            dayjs.extend(customParseFormat);
-            const parsed = dayjs(message.content, 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true);
-            await message.delete();
-
-            if (!parsed.isValid() || parsed.isBefore(dayjs()))
-                return [response, false];
-
-            response.datetime = parsed.toDate();
-        }
-
-        await interaction.editReply({
-            embeds: [{
-                title: 'Add Deadline',
-                description: `Please enter the description of this deadline.`
-            }],
-            components: [new MessageActionRow()
-                .addComponents(skipButton)]
-        });
-
-        return [response, true];
-    },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
-        if (message !== undefined) {
-            response.description = message.content;
-            await message.delete();
-        }
-
-        await interaction.editReply({
-            embeds: [{
-                title: 'Add Deadline',
-                description: `Please enter the url referring to this deadline on Moodle.`
-            }],
-            components: [new MessageActionRow()
-                .addComponents(skipButton)]
-        });
-
-        return [response, true];
-    },
-    async (interaction: CommandInteraction, message: Message | undefined, response: Response): Promise<CallbackReturn> => {
-        if (message !== undefined) {
-            response.url = message.content;
-            await message.delete();
-        }
-
-        await interaction.editReply({
-            embeds: [{
-                title: 'Is this correct? (Respond with yes/no)',
-                fields: [
-                    {
-                        name: 'Name',
-                        value: response.name || '\`None\`'
-                    },
-                    {
-                        name: 'Time',
-                        value: response.datetime.toLocaleString()
-                    },
-                    {
-                        name: 'Description',
-                        value: response.description || '\`None\`'
-                    },
-                    {
-                        name: 'url',
-                        value: response.url || '\`None\`'
-                    }
-                ]
-            }],
-            components: [new MessageActionRow()
-                .addComponents([yesButton, noButton])]
-        });
-
-        return [response, true];
-
-    }];
+const modal = new ModalBuilder()
+    .setCustomId(GLOBAL_CUSTOMID)
+    .setTitle('Add Deadline')
+    .addComponents(
+        new ActionRowBuilder<TextInputBuilder>()
+            .addComponents(
+                new TextInputBuilder()
+                    .setCustomId(CUSTOMID.name)
+                    .setLabel('Name')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)),
+        new ActionRowBuilder<TextInputBuilder>()
+            .addComponents(
+                new TextInputBuilder()
+                    .setCustomId(CUSTOMID.date)
+                    .setLabel('Date (In DD/MM/YYYY, HH:mm:ss)')
+                    .setPlaceholder('e.g. 31/01/2001, 13:05:00')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)),
+        new ActionRowBuilder<TextInputBuilder>()
+            .addComponents(
+                new TextInputBuilder()
+                    .setCustomId(CUSTOMID.description)
+                    .setLabel('Description')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(false)),
+        new ActionRowBuilder<TextInputBuilder>()
+            .addComponents(
+                new TextInputBuilder()
+                    .setCustomId(CUSTOMID.url)
+                    .setLabel('URL Referring to this deadline')
+                    .setPlaceholder('e.g. https://l.xmu.edu.my/mod/assign/view.php?id=204150')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)));
 
 async function courseReplyOptions() {
     return {
         embeds: [{
             title: 'Choose a course'
         }],
-        components: [new MessageActionRow()
+        components: [new ActionRowBuilder<SelectMenuBuilder>()
             .addComponents(await (async () => {
-                const menu = new MessageSelectMenu()
-                    .setCustomId('course');
+                const menu = new SelectMenuBuilder()
+                    .setCustomId(GLOBAL_CUSTOMID);
 
                 if ((await GUILD.getAllCourses()).length === 0)
                     throw 'No courses.';
@@ -167,9 +85,7 @@ async function courseReplyOptions() {
     };
 }
 
-async function chooseCourseLifecycle(interaction: CommandInteraction) {
-    const response: any = {};
-
+async function chooseCourseLifecycle(interaction: ChatInputCommandInteraction) {
     try {
         const fields = await courseReplyOptions();
     }
@@ -178,119 +94,95 @@ async function chooseCourseLifecycle(interaction: CommandInteraction) {
         throw 'No deadlines';
     }
     // If the above does not throw an error, there's deadlines available to delete
-
-    const reply = await interaction.reply({
+    await interaction.reply({
         ...await courseReplyOptions(),
-        fetchReply: true, ephemeral: true
-    }) as Message;
-
-    const collector = reply.createMessageComponentCollector({
-        filter: component => component.user.id === interaction.user.id,
-        componentType: 'SELECT_MENU',
-        idle: 30000
-    })
-        .on('collect', async componentInteraction => {
-            response.course = await GUILD.getCourse(componentInteraction.values[0], undefined);
-
-            await componentInteraction.update({ components: [] });
-            collector.stop();
-        })
-        .on('end', async () => {
-            await addDeadlineLifecycle(interaction, reply, response.course);
-        });
-}
-
-async function addDeadlineLifecycle(interaction: CommandInteraction, message: Message, course: Course) {
-    let callbackIndex = 0;
-    let response = {
-        name: '',
-        datetime: new Date(),
-        description: '',
-        url: '',
-    };
-    let isSuccess = true;
-
-    await interaction.editReply({
-        embeds: [{
-            title: 'Add Deadline',
-            description: `Please enter the deadline name.`
-        }]
+        ephemeral: true
     });
 
-    callbackIndex++;
-
-    const collector = new MessageCollector(interaction.channel as TextBasedChannel, {
-        filter: message => message.author.id === interaction.user.id,
-        idle: 30000
-    })
-        .on('collect', async message => {
-            [response, isSuccess] = await callbacks[callbackIndex++](interaction, message, response);
-
-            if (!isSuccess) {
-                callbackIndex -= 1;
-                await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
-            }
-        });
-
-    const componentCollector = message.createMessageComponentCollector({
-        componentType: 'BUTTON',
-        filter: interactor => interactor.user.id === interaction.user.id,
-        idle: 50000
-    })
-        .on('collect', async componentInteraction => {
-
-            if (componentInteraction.customId !== 'skip') {
-                // We're in the last comfirmation
-                if (componentInteraction.customId === 'no') {
-                    callbackIndex = 0;
-
-                    await componentInteraction.update({
-                        components: []
-                    });
-                    [response, isSuccess] = await callbacks[callbackIndex++](interaction, undefined, response);
-                }
-                else {
-                    componentCollector.stop();
-                    collector.stop();
-                    await componentInteraction.update({ components: [] });
-
-                    await GUILD.addDeadlineToCourse(course.name, response, interaction.client);
-
-                    await interaction.editReply({
-                        embeds: [{
-                            title: 'Add Deadline ✅',
-                            color: 'GREEN'
-                        }]
-                    });
-                }
-
-                return;
-            }
-
-            await componentInteraction.update({});
-
-            [response, isSuccess] = await callbacks[callbackIndex++](interaction, undefined, response);
-
-            if (!isSuccess) {
-                callbackIndex -= 1;
-                await interaction.followUp({ content: `Invalid response.`, ephemeral: true });
-            }
-        })
-        .on('stop', async () => {
-
-            const disabled = message.components[0].components;
-            disabled.forEach(component => component.setDisabled(true));
-            await interaction.editReply({
-                components: [new MessageActionRow()
-                    .setComponents(disabled)]
-            });
-        });
+    await messageComponentCloseCollector(interaction);
 }
+
 
 const command = createSubCommand('add', 'Adds a deadline',
     builder => builder,
     async interaction => {
-        await chooseCourseLifecycle(interaction);
+        if (interaction.isChatInputCommand())
+            await chooseCourseLifecycle(interaction);
+    },
+    async (modalInteraction: ModalSubmitInteraction) => {
+
+        let actionRow = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(GLOBAL_CUSTOMID + ' no')
+                    .setLabel('No')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId(GLOBAL_CUSTOMID + ' yes')
+                    .setLabel('Yes')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        ID_TO_DETAILS[modalInteraction.user.id] = {
+            date: modalInteraction.fields.getTextInputValue(CUSTOMID.date),
+            name: modalInteraction.fields.getTextInputValue(CUSTOMID.name),
+            description: modalInteraction.fields.getTextInputValue(CUSTOMID.description),
+            url: modalInteraction.fields.getTextInputValue(CUSTOMID.url)
+        };
+
+        const parsed = dayjs(ID_TO_DETAILS[modalInteraction.user.id].date, 'DD/MM/YYYY, HH:mm:ss', 'ms_MY', true);
+
+        if (!parsed.isValid() || parsed.isBefore(dayjs())) {
+            await modalInteraction.reply({
+                content: 'Looks like you gave a wrong date. Do you want to try again?',
+                components: [actionRow],
+                ephemeral: true,
+            });
+
+            await messageComponentCloseCollector(modalInteraction);
+            return;
+        }
+
+        await GUILD.addDeadlineToCourse(ID_TO_COURSE[modalInteraction.user.id].name, {
+            name: ID_TO_DETAILS[modalInteraction.user.id].name,
+            datetime: parsed.toDate(),
+            description: ID_TO_DETAILS[modalInteraction.user.id].description,
+            url: ID_TO_DETAILS[modalInteraction.user.id].url
+        }, modalInteraction.client);
+
+        await modalInteraction.reply({ content: `Deadline Added! :white_check_mark:`, ephemeral: true });
+    },
+    async componentInteraction => {
+
+        if (componentInteraction.isSelectMenu()) {
+
+            ID_TO_COURSE[componentInteraction.user.id] = await GUILD.getCourse(componentInteraction.values[0], undefined) as Course;
+
+            await componentInteraction.showModal(modal);
+            return;
+        }
+        if (componentInteraction.isButton()) {
+
+            if (componentInteraction.customId === GLOBAL_CUSTOMID + ' no')
+                return;
+
+            let newModal = new ModalBuilder(modal.toJSON())
+                .setComponents(...modal.components.map(actionRow =>
+                    new ActionRowBuilder<TextInputBuilder>(actionRow.toJSON())
+                        .setComponents(...actionRow.components.map(component => {
+                            if (component.data.custom_id === CUSTOMID.name)
+                                component.setValue(ID_TO_DETAILS[componentInteraction.user.id].name);
+                            if (component.data.custom_id === CUSTOMID.description)
+                                component.setValue(ID_TO_DETAILS[componentInteraction.user.id].description);
+                            if (component.data.custom_id === CUSTOMID.url)
+                                component.setValue(ID_TO_DETAILS[componentInteraction.user.id].url);
+                            return component;
+                        }))
+                ));
+
+            await componentInteraction.showModal(newModal);
+            return;
+        }
     });
 
 export default command;

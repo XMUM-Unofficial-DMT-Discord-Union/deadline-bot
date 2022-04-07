@@ -4,6 +4,8 @@ import { createSubCommand, GUILD, prisma } from '../../../utilities.js';
 const command = createSubCommand('end', 'Disenroll everyone from their courses',
     builder => builder,
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
         const courses = await GUILD.getAllCourses();
 
         await interaction.reply({ content: `Disenrolling everyone...`, ephemeral: true });

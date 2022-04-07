@@ -9,7 +9,9 @@ const command = createSubCommand('kick', 'Kicks a member',
             .setDescription('The reason of kicking him/her')
             .setRequired(false)),
     async interaction => {
-        const targetMember = interaction.options.getMember('user', true) as GuildMember;
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
+        const targetMember = interaction.options.getMember('user') as GuildMember;
 
         if (targetMember.user.bot)
             await interaction.reply({ content: `${targetMember.displayName} is a bot, and bots can't be kicked!`, ephemeral: true });

@@ -7,7 +7,9 @@ const command = createSubCommand('add', 'Adds an admin',
         .setDescription('The user to add as admin')
         .setRequired(true))
     , async (interaction) => {
-        const targetMember = interaction.options.getMember('target_user', true) as GuildMember;
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
+        const targetMember = interaction.options.getMember('target_user') as GuildMember;
 
         const modId = (await GUILD.getModRole(interaction.guildId as string, interaction.client)).id;
         const adminId = (await GUILD.getAdminRole(interaction.guildId as string, interaction.client)).id;

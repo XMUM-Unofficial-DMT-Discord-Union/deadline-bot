@@ -1,26 +1,23 @@
-import { AutocompleteInteraction, Message, MessageActionRow } from 'discord.js';
-import { createSubCommand, GUILD, prisma } from '../../utilities.js';
+import { AutocompleteInteraction, Message, ButtonBuilder, ActionRowBuilder, ComponentType, ButtonStyle, Colors, EnumResolvers, ButtonComponent } from 'discord.js';
+import { createSubCommand, GUILD, prisma, resolveBaseCustomId } from '../../utilities.js';
 
-const component = new MessageActionRow()
-    .addComponents([{
-        type: 'BUTTON',
-        customId: 'cancel',
-        label: 'Cancel',
-        style: 'PRIMARY'
-    },
-    {
-        type: 'BUTTON',
-        customId: 'no',
-        label: 'Reject',
-        style: 'PRIMARY'
-    },
-    {
-        type: 'BUTTON',
-        customId: 'yes',
-        label: 'Accept',
-        style: 'PRIMARY'
-    }]);
+const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
 
+const component = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
+        new ButtonBuilder()
+            .setCustomId(GLOBAL_CUSTOMID + ' cancel')
+            .setLabel('Cancel')
+            .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+            .setCustomId(GLOBAL_CUSTOMID + ' no')
+            .setLabel('Reject')
+            .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+            .setCustomId(GLOBAL_CUSTOMID + ' yes')
+            .setLabel('Yes')
+            .setStyle(ButtonStyle.Primary)
+    );
 
 const command = createSubCommand('verify', 'Verifies a member',
     builder => builder.addStringOption(option => option.setName('user')
@@ -33,7 +30,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                 where: {
                     guilds: {
                         some: {
-                            id: (interaction as AutocompleteInteraction)?.guildId as string
+                            id: interaction.guildId as string
                         }
                     },
                     studentsToRoles: {
@@ -45,7 +42,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                     }
                 }
             });
-            await (interaction as AutocompleteInteraction).respond(users.map(student => { return { name: student.name, value: student.discordId }; }));
+            await interaction.respond(users.map(student => { return { name: student.name, value: student.discordId }; }));
             return;
         }
 
@@ -73,7 +70,7 @@ const command = createSubCommand('verify', 'Verifies a member',
             embeds: [{
                 title: `Verification Details`,
                 description: `Candidate Name: \`${student.name}\``,
-                color: '#efd405',
+                color: 15717381, // #efd405
                 fields: [{
                     name: 'Student ID',
                     value: `\`${student.id}\``,
@@ -95,27 +92,30 @@ const command = createSubCommand('verify', 'Verifies a member',
             ephemeral: true
         }) as Message;
 
-        const collector = reply.createMessageComponentCollector({ filter: button => button.user.id === interaction.user.id, componentType: 'BUTTON', idle: 30000, max: 1 })
+        const collector = reply.createMessageComponentCollector({ filter: button => button.user.id === interaction.user.id, componentType: ComponentType.Button, idle: 30000, max: 1 })
             .on('collect', async componentInteraction => {
 
-                const localComponents = (componentInteraction.message.components as MessageActionRow[]);
+                const localComponents = componentInteraction.message.components;
 
-                localComponents[0].components.forEach(component => component.disabled = true);
+                const updatedComponents = localComponents![0].components.map(component => ButtonBuilder.from(component as ButtonComponent).setDisabled(true));
 
-                await componentInteraction.update({ components: localComponents });
+                await componentInteraction.update({
+                    components: [new ActionRowBuilder<ButtonBuilder>()
+                        .addComponents(...updatedComponents)]
+                });
 
                 collector.stop();
 
-                if (componentInteraction.customId === 'cancel') {
+                if (componentInteraction.customId === GLOBAL_CUSTOMID + ' cancel') {
                     await interaction.editReply({
                         embeds: [{
                             title: 'Verification Cancelled',
-                            color: 'GREY'
+                            color: Colors.Grey
                         }],
                         components: []
                     });
                 }
-                else if (componentInteraction.customId === 'no') {
+                else if (componentInteraction.customId === GLOBAL_CUSTOMID + ' no') {
 
                     // TODO: Notify student that verification is rejected
                     await prisma.student.delete({
@@ -127,11 +127,11 @@ const command = createSubCommand('verify', 'Verifies a member',
                     await interaction.editReply({
                         embeds: [{
                             title: 'Member Denied! ⛔',
-                            color: 'RED'
+                            color: Colors.Red
                         }],
                         components: []
                     });
-                } else if (componentInteraction.customId === 'yes') {
+                } else if (componentInteraction.customId === GLOBAL_CUSTOMID + ' yes') {
 
                     await prisma.student.update({
                         where: {
@@ -169,7 +169,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                     await interaction.editReply({
                         embeds: [{
                             title: 'Member Verified! ✅',
-                            color: 'GREEN'
+                            color: Colors.Green
                         }],
                         components: []
                     });

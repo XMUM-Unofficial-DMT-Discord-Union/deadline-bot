@@ -9,10 +9,10 @@ const command = createSubCommand('leave', 'Leave a course',
         .setAutocomplete(true)),
     async interaction => {
         if (interaction.isAutocomplete()) {
-            await (interaction as AutocompleteInteraction).respond(await (async _ => {
+            await interaction.respond(await (async _ => {
                 let result = [];
                 for (let course of await GUILD.getAllCourses()) {
-                    if (course.students.find(student => student.discordId === (interaction as AutocompleteInteraction).user.id) === undefined)
+                    if (course.students.find(student => student.discordId === interaction.user.id) === undefined)
                         continue;
 
                     result.push({ name: course.name, value: course.name });

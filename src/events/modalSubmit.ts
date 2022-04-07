@@ -1,5 +1,4 @@
-import { ModalSubmitInteraction } from 'discord-modals';
-import { Client } from 'discord.js';
+import { ModalSubmitInteraction } from 'discord.js';
 
 import Commands from '../commands.js';
 

@@ -9,9 +9,11 @@ const command = createSubCommand('warn', 'Warns a member',
             .setDescription('The reason for warning him/her')
             .setRequired(true)),
     async interaction => {
+        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+
 
         if (process.env.ENVIRONMENT === 'production') {
-            const targetMember = interaction.options.getMember('user', true) as GuildMember;
+            const targetMember = interaction.options.getMember('user') as GuildMember;
             const channel = interaction.guild?.channels.resolve('923137246914310154');
 
             await interaction.deferReply({ ephemeral: true });
@@ -28,10 +30,10 @@ const command = createSubCommand('warn', 'Warns a member',
                     });
                 }
 
-                await interaction.followUp({ content: `Warning sent!`, ephemeral: true })
+                await interaction.followUp({ content: `Warning sent!`, ephemeral: true });
             }
         } else {
-            const targetMember = interaction.options.getMember('user', true) as GuildMember;
+            const targetMember = interaction.options.getMember('user') as GuildMember;
             const channel = interaction.guild?.channels.resolve('936951506551308288');
 
             if (targetMember.user.bot)
@@ -48,7 +50,7 @@ const command = createSubCommand('warn', 'Warns a member',
                     });
                 }
 
-                await interaction.followUp({ content: `Warning sent!`, ephemeral: true })
+                await interaction.followUp({ content: `Warning sent!`, ephemeral: true });
             }
         }
     });

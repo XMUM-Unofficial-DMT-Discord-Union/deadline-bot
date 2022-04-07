@@ -7,6 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Guild {
+  /// The associated Snowflake retrieved from Discord
+  id                        String  @id @unique
+  /// The Snowflake from the associated channel to notify new verifications
+  verificationNotifyChannel String?
+
+  role     Role[]
+  students Student[]
+
+  applications Application[]
+  suggestions  Suggestion[]
+  reports      Report[]
+}
+
 model Application {
   id        Int             @id @default(autoincrement())
   type      ApplicationType
@@ -41,17 +55,6 @@ model Report {
 
   guild   Guild  @relation(fields: [guildId], references: [id])
   guildId String
-}
-
-model Guild {
-  /// The associated UUID retrieved from Discord
-  id       String    @id @unique
-  role     Role[]
-  students Student[]
-
-  applications Application[]
-  suggestions  Suggestion[]
-  reports      Report[]
 }
 
 model Deadline {
@@ -96,7 +99,7 @@ model Student {
 }
 
 model Role {
-  id      String   @unique /// The corresponding 
+  id      String   @unique /// The corresponding Snowflake retrieved from Discord
   type    RoleType
   guild   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   guildId String

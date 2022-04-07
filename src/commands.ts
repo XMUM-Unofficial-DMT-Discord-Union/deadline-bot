@@ -1,11 +1,11 @@
-import { Collection } from 'discord.js';
+import { Collection, Interaction } from 'discord.js';
 import { fileURLToPath } from 'url';
 
 import { Command, CommandGroup, ModalHandlerType, Permissions } from './types.js';
 import { directoryFiles } from './utilities.js';
 
 const BOT_COMMANDS = new Collection<string, Command | CommandGroup>();
-const MODAL_HANDLERS = new Collection<string, ModalHandlerType>();
+const CUSTOM_ID_HANDLERS = new Collection<string, ModalHandlerType>();
 
 for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPath(import.meta.url), 'commands')) {
 
@@ -18,8 +18,8 @@ for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPat
 
     BOT_COMMANDS.set(command.data.name, command);
 
-    if (command.modalHandler !== undefined)
-        MODAL_HANDLERS.set(command.modalId as string, command.modalHandler);
+    if (command.customIdHandler !== undefined)
+        CUSTOM_ID_HANDLERS.set(command.modalId as string, command.customIdHandler);
 }
 
-export default { BOT_COMMANDS, MODAL_HANDLERS };
+export default { BOT_COMMANDS, MODAL_HANDLERS: CUSTOM_ID_HANDLERS };
