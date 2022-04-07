@@ -42,7 +42,7 @@ export function createCommand(name: string, description: string, permission: Per
     };
 
     if (modalHandler !== undefined || messageComponentHandler !== undefined)
-        Object.defineProperty(command, "modalHandler",
+        Object.defineProperty(command, "customIdHandler",
             {
                 value: async (interaction: ModalSubmitInteraction | MessageComponentInteraction, _: string) => {
                     if (interaction.isModalSubmit()) {
@@ -97,7 +97,7 @@ export async function createCommandGroup(name: string, description: string, perm
         command.subcommands?.set(subcommand.data.name, subcommand);
     }
 
-    Object.defineProperty(command, "modalHandler",
+    Object.defineProperty(command, "customIdHandler",
         {
             value: async (modal: ModalSubmitInteraction, partitionId: string) => {
 
@@ -110,11 +110,11 @@ export async function createCommandGroup(name: string, description: string, perm
 
                 let handler = command.subcommands.get(nextHandlerId);
 
-                if (handler === undefined || handler.modalHandler === undefined)
+                if (handler === undefined || handler.customIdHandler === undefined)
                     throw `In Command Group '${name}'. The modal with id '${partitionId}' does not match with any subcommands/subcommand groups within the group.`;
 
                 // It's now confirmed that there's a subcommand handler
-                await handler.modalHandler(modal, subPartitionId);
+                await handler.customIdHandler(modal, subPartitionId);
             },
             writable: true
         });
@@ -157,23 +157,20 @@ export async function createSubCommandGroup(name: string, description: string, f
         command.subcommands?.set(subcommand.data.name, subcommand);
     }
 
-    Object.defineProperty(command, "modalHandler",
+    Object.defineProperty(command, "customIdHandler",
         {
             value: async (modal: ModalSubmitInteraction, partitionId: string) => {
                 let categorySeparatorIndex = partitionId.indexOf(' ');
                 let nextHandlerId = partitionId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex);
                 let subPartitionId = categorySeparatorIndex === -1 ? partitionId : partitionId.substring(categorySeparatorIndex + 1);
 
-                if (categorySeparatorIndex !== -1)
-                    throw `In Subcommand Group '${name}'. The modal with id '${partitionId}' has whitespaces.`;
-
                 let handler = command.subcommands.get(nextHandlerId);
 
-                if (handler === undefined || handler.modalHandler === undefined)
+                if (handler === undefined || handler.customIdHandler === undefined)
                     throw `In Subcommand Group '${name}'. The modal with id '${partitionId}' does not match with any subcommands within the group.`;
 
                 // It's now confirmed that there's a subcommand handler
-                await handler.modalHandler(modal, subPartitionId);
+                await handler.customIdHandler(modal, subPartitionId);
             },
             writable: true
         });
@@ -204,7 +201,7 @@ export function createSubCommand(name: string, description: string,
     };
 
     if (modalHandler !== undefined || messageComponentHandler !== undefined)
-        Object.defineProperty(command, "modalHandler",
+        Object.defineProperty(command, "customIdHandler",
             {
                 value: async (interaction: ModalSubmitInteraction | MessageComponentInteraction, _: string) => {
                     if (interaction.isModalSubmit()) {
@@ -227,7 +224,8 @@ export function createSubCommand(name: string, description: string,
  * Creates a MessageComponentCollector and edits the existing reply from `interaction` when a component interaction is done
  * @param interaction The interaction that replied to the user
  */
-export async function messageComponentCloseCollector(interaction: ChatInputCommandInteraction) {
+export async function messageComponentCloseCollector
+    <T extends ChatInputCommandInteraction | ModalSubmitInteraction>(interaction: T) {
     const message = await interaction.fetchReply() as Message;
     const collector = await message.createMessageComponentCollector({ filter: newInteraction => newInteraction.user.id === interaction.user.id })
         .on('collect', async _ => {

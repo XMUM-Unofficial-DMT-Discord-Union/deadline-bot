@@ -18,8 +18,8 @@ for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPat
 
     BOT_COMMANDS.set(command.data.name, command);
 
-    if (command.modalHandler !== undefined)
-        CUSTOM_ID_HANDLERS.set(command.modalId as string, command.modalHandler);
+    if (command.customIdHandler !== undefined)
+        CUSTOM_ID_HANDLERS.set(command.modalId as string, command.customIdHandler);
 }
 
 export default { BOT_COMMANDS, MODAL_HANDLERS: CUSTOM_ID_HANDLERS };

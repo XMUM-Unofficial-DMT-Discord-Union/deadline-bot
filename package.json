@@ -10,7 +10,7 @@
     "start": "npm run build && node -r dotenv/config . dotenv_config_path=./.env.production.local"
   },
   "dependencies": {
-    "@discordjs/builders": "^0.13.0-dev.1649030892-5748dbe",
+    "@discordjs/builders": "^0.13.0-dev.1649160523-402514f",
     "@discordjs/rest": "^0.3.0",
     "@prisma/client": "^3.12.0",
     "@types/node": "*",

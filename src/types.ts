@@ -11,7 +11,7 @@ export type Command = {
     permission?: Permissions;
     execute(interaction: HandledInteractions): Promise<any>;
     modalId?: string;
-    modalHandler?: ModalHandlerType;
+    customIdHandler?: ModalHandlerType;
 };
 
 // Defines a group of Subcommands branching from a single Command
@@ -28,7 +28,7 @@ export type SubCommandGroup = {
     subcommands: Collection<string, SubCommand>;
     subHandlers: Collection<string, ModalHandlerType>;
     execute(interaction: HandledInteractions): Promise<any>;
-    modalHandler?: ModalHandlerType;
+    customIdHandler?: ModalHandlerType;
 };
 
 // Defines the structure of each Subcommand
@@ -37,7 +37,7 @@ export type SubCommand = {
     permission?: Permissions;
     bindTo(command: CommandGroup | SubCommandGroup): void;
     execute(interaction: HandledInteractions): Promise<any>;
-    modalHandler?: ModalHandlerType;
+    customIdHandler?: ModalHandlerType;
 };
 
 // Defines the structure of each event

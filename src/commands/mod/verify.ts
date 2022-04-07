@@ -1,18 +1,20 @@
 import { AutocompleteInteraction, Message, ButtonBuilder, ActionRowBuilder, ComponentType, ButtonStyle, Colors, EnumResolvers, ButtonComponent } from 'discord.js';
-import { createSubCommand, GUILD, prisma } from '../../utilities.js';
+import { createSubCommand, GUILD, prisma, resolveBaseCustomId } from '../../utilities.js';
+
+const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
 
 const component = new ActionRowBuilder<ButtonBuilder>()
     .addComponents(
         new ButtonBuilder()
-            .setCustomId('cancel')
+            .setCustomId(GLOBAL_CUSTOMID + ' cancel')
             .setLabel('Cancel')
             .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
+            .setCustomId(GLOBAL_CUSTOMID + ' no')
             .setLabel('Reject')
-            .setCustomId('no')
             .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
-            .setCustomId('yes')
+            .setCustomId(GLOBAL_CUSTOMID + ' yes')
             .setLabel('Yes')
             .setStyle(ButtonStyle.Primary)
     );
@@ -104,7 +106,7 @@ const command = createSubCommand('verify', 'Verifies a member',
 
                 collector.stop();
 
-                if (componentInteraction.customId === 'cancel') {
+                if (componentInteraction.customId === GLOBAL_CUSTOMID + ' cancel') {
                     await interaction.editReply({
                         embeds: [{
                             title: 'Verification Cancelled',
@@ -113,7 +115,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                         components: []
                     });
                 }
-                else if (componentInteraction.customId === 'no') {
+                else if (componentInteraction.customId === GLOBAL_CUSTOMID + ' no') {
 
                     // TODO: Notify student that verification is rejected
                     await prisma.student.delete({
@@ -129,7 +131,7 @@ const command = createSubCommand('verify', 'Verifies a member',
                         }],
                         components: []
                     });
-                } else if (componentInteraction.customId === 'yes') {
+                } else if (componentInteraction.customId === GLOBAL_CUSTOMID + ' yes') {
 
                     await prisma.student.update({
                         where: {
