@@ -1,11 +1,11 @@
 import { Deadline, Student } from '@prisma/client';
 import dayjs from 'dayjs';
-import { Client, Colors, TextChannel } from 'discord.js';
+import { Client, TextChannel } from 'discord.js';
 import ms from 'ms';
 import { StringValue } from 'ms';
 import scheduler, { Job } from 'node-schedule';
 
-import { GUILD, prisma } from './utilities.js';
+import { prisma } from './utilities.js';
 
 const JOBS: {
     [jobName: string]: Job;

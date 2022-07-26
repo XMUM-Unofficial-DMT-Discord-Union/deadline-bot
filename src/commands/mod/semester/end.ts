@@ -1,10 +1,11 @@
 
+import { InteractionType } from 'discord.js';
 import { createSubCommand, GUILD, prisma } from '../../../utilities.js';
 
 const command = createSubCommand('end', 'Disenroll everyone from their courses',
     builder => builder,
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         const courses = await GUILD.getAllCourses();
 

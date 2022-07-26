@@ -1,6 +1,5 @@
-import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from '@discordjs/builders';
 import Prisma from '@prisma/client';
-import { ApplicationCommandOptionType, CacheType, Collection, ChatInputCommandInteraction, ModalSubmitInteraction, Interaction, InteractionType, MessageComponentInteraction, CommandInteraction, Message } from 'discord.js';
+import { ApplicationCommandOptionType, CacheType, Collection, ChatInputCommandInteraction, ModalSubmitInteraction, Interaction, InteractionType, MessageComponentInteraction, CommandInteraction, Message, SlashCommandBuilder, SlashCommandSubcommandGroupBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -45,7 +44,7 @@ export function createCommand(name: string, description: string, permission: Per
         Object.defineProperty(command, "customIdHandler",
             {
                 value: async (interaction: ModalSubmitInteraction | MessageComponentInteraction, _: string) => {
-                    if (interaction.isModalSubmit()) {
+                    if (interaction.type === InteractionType.ModalSubmit) {
                         if (modalHandler === undefined)
                             throw `Command name \`${name}\` does not have a modal handler.`;
                         return modalHandler(interaction);
@@ -204,7 +203,7 @@ export function createSubCommand(name: string, description: string,
         Object.defineProperty(command, "customIdHandler",
             {
                 value: async (interaction: ModalSubmitInteraction | MessageComponentInteraction, _: string) => {
-                    if (interaction.isModalSubmit()) {
+                    if (interaction.type === InteractionType.ModalSubmit) {
                         if (modalHandler === undefined)
                             throw `Command name \`${name}\` does not have a modal handler.`;
                         return modalHandler(interaction);

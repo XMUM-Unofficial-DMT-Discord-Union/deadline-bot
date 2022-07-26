@@ -1,5 +1,4 @@
-import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from "@discordjs/builders";
-import { CacheType, Collection, ModalSubmitInteraction, MessageComponentInteraction, ChatInputCommandInteraction, AutocompleteInteraction } from "discord.js";
+import { CacheType, Collection, ModalSubmitInteraction, MessageComponentInteraction, ChatInputCommandInteraction, AutocompleteInteraction, SlashCommandBuilder, SlashCommandSubcommandGroupBuilder, SlashCommandSubcommandBuilder } from "discord.js";
 
 export type ModalHandlerType = (modal: ModalSubmitInteraction<CacheType> | MessageComponentInteraction<CacheType>, partitionId: string) => Promise<any>;
 

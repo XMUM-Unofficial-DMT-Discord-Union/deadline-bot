@@ -11,6 +11,9 @@
         "sourceMap": false
     },
     "exclude": [
-        "./prisma/**"
+        "./prisma/**",
+        "node_modules",
+        "build",
+        ".vscode"
     ]
 }

@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { InteractionType } from "discord.js";
 import { createSubCommand, GUILD } from "../../utilities.js";
 
 const command = createSubCommand('rolename', 'Sets the rolename of Admin',
@@ -7,7 +7,7 @@ const command = createSubCommand('rolename', 'Sets the rolename of Admin',
             .setDescription('The nickname of the bot')
             .setRequired(true)),
     async (interaction) => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         const rolename = interaction.options.getString('name', true);
 

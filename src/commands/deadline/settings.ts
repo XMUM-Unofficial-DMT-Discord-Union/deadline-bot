@@ -1,4 +1,4 @@
-import { Colors } from 'discord.js';
+import { Colors, InteractionType } from 'discord.js';
 import ms, { StringValue } from 'ms';
 
 import { createSubCommand, prisma } from '../../utilities.js';
@@ -6,7 +6,7 @@ import { createSubCommand, prisma } from '../../utilities.js';
 const command = createSubCommand('settings', 'Change how you want your deadlines to be reminded.',
     builder => builder,
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
 
         const student = await prisma.student.findUnique({

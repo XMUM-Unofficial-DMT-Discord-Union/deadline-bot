@@ -1,13 +1,12 @@
-import { ActionRowBuilder, SelectMenuBuilder } from "@discordjs/builders";
-import { ChannelType, Colors, EmbedBuilder, GuildTextBasedChannel, TextChannel } from "discord.js";
-import { createSubCommand, GUILD, prisma, resolveBaseCustomId } from "../../../utilities.js";
+import { ActionRowBuilder, ChannelType, Colors, EmbedBuilder, InteractionType, SelectMenuBuilder } from "discord.js";
+import { createSubCommand, prisma, resolveBaseCustomId } from "../../../utilities.js";
 
 const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
 
 const command = createSubCommand('channel', 'Configure verification notification channel',
     (builder) => builder,
     async (interaction) => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         await interaction.deferReply({ ephemeral: true });
 

@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, SelectMenuBuilder, TextBasedChannel, ButtonStyle, ComponentType, Colors, ButtonComponent } from 'discord.js';
+import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, SelectMenuBuilder, TextBasedChannel, ButtonStyle, ComponentType, Colors, ButtonComponent, InteractionType } from 'discord.js';
 import { Course, Deadline } from '../../../models/course.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
@@ -262,7 +262,7 @@ async function extendDeadlineLifecycle(interaction: ChatInputCommandInteraction,
 const command = createSubCommand('extend', 'Extends an existing deadline',
     builder => builder,
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         await chooseDeadlineLifecycle(interaction);
     });

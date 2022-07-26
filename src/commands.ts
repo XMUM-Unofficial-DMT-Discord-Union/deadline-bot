@@ -14,7 +14,10 @@ for (const commandPromise of directoryFiles<Command | CommandGroup>(fileURLToPat
     if (command.permission === Permissions.NOTVERIFIED)
         command.data.setDefaultPermission(true);
     else
-        command.data.setDefaultPermission(false);
+        command.data.setDefaultMemberPermissions('0');
+
+    // Discord.js v14: Commands are by default visible in DMs
+    command.data.setDMPermission(false);
 
     BOT_COMMANDS.set(command.data.name, command);
 

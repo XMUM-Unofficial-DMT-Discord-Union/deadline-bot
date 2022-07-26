@@ -5,11 +5,10 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import { ChatInputCommandInteraction, ComponentType, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, SelectMenuBuilder, TextBasedChannel, Colors, ButtonStyle, InteractionReplyOptions, ButtonComponent } from 'discord.js';
+import { ChatInputCommandInteraction, ComponentType, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, SelectMenuBuilder, TextBasedChannel, Colors, ButtonStyle, ButtonComponent, InteractionType } from 'discord.js';
 
 import { Course, Deadline } from '@prisma/client';
 import { createSubCommand, GUILD } from '../../../utilities.js';
-import { ComponentBuilder, createComponentBuilder } from '@discordjs/builders';
 
 type CallbackReturn = [Deadline, boolean];
 
@@ -361,7 +360,7 @@ async function editDeadlineLifecycle(interaction: ChatInputCommandInteraction, m
 const command = createSubCommand('edit', 'Edits an existing deadline',
     builder => builder,
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         await chooseDeadlineLifecycle(interaction)
             .catch(error => console.log(error));

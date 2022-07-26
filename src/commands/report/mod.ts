@@ -1,5 +1,4 @@
-import { ApplicationCommandOptionChoice, AutocompleteInteraction } from 'discord.js';
-import { createSubCommand, GUILD, unimplementedCommandCallback } from '../../utilities.js';
+import { createSubCommand, unimplementedCommandCallback } from '../../utilities.js';
 
 /*
 const command = createSubCommand('mod', 'Report a mod',
@@ -11,7 +10,7 @@ const command = createSubCommand('mod', 'Report a mod',
             .setDescription('The reason of reporting this mod')
             .setRequired(true)),
     async interaction => {
-        if (interaction.isAutocomplete()) {
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
             let result: ApplicationCommandOptionChoice[] = [];
 
             let students = GUILD.getAllStudents().verified;

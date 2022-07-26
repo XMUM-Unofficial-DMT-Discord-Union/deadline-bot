@@ -1,5 +1,5 @@
 import { Application } from '@prisma/client';
-import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, TextBasedChannel, ButtonStyle, ComponentType, Colors, ButtonComponent } from 'discord.js';
+import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, MessageCollector, TextBasedChannel, ButtonStyle, ComponentType, Colors, ButtonComponent, InteractionType } from 'discord.js';
 import { createSubCommand, GUILD } from '../../../utilities.js';
 
 const ID_STATES: {
@@ -149,7 +149,7 @@ async function questionsLifecycle(interaction: ChatInputCommandInteraction) {
 const command = createSubCommand('admin', 'Apply for admin role',
     builder => builder,
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         await questionsLifecycle(interaction);
     });

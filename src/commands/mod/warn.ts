@@ -1,4 +1,4 @@
-import { GuildMember } from 'discord.js';
+import { ChannelType, GuildMember, InteractionType } from 'discord.js';
 import { createSubCommand } from '../../utilities.js';
 
 const command = createSubCommand('warn', 'Warns a member',
@@ -9,7 +9,7 @@ const command = createSubCommand('warn', 'Warns a member',
             .setDescription('The reason for warning him/her')
             .setRequired(true)),
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
 
         if (process.env.ENVIRONMENT === 'production') {
@@ -23,7 +23,7 @@ const command = createSubCommand('warn', 'Warns a member',
             else {
                 const reason = interaction.options.getString('reason', true);
 
-                if (channel?.isText()) {
+                if (channel?.type == ChannelType.GuildText) {
                     await channel?.send({
                         content: `Oh no, ${targetMember}. You've been warned for *${reason}*`,
                         files: ['https://i.imgur.com/iIwe4Zv.png']
@@ -43,7 +43,7 @@ const command = createSubCommand('warn', 'Warns a member',
 
                 await interaction.deferReply({ ephemeral: true });
 
-                if (channel?.isText()) {
+                if (channel?.type == ChannelType.GuildText) {
                     await channel?.send({
                         content: `Oh no, ${targetMember}. You've been warned for *${reason}*`,
                         files: ['https://i.imgur.com/iIwe4Zv.png']

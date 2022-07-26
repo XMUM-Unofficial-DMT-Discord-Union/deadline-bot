@@ -1,9 +1,10 @@
+import { InteractionType } from 'discord.js';
 import { createSubCommand } from '../../utilities.js';
 
 const command = createSubCommand('aboutme', 'Information about the bot',
     builder => builder,
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         await interaction.reply({
             embeds: [{

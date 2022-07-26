@@ -1,5 +1,4 @@
-import { ActionRowBuilder, TextInputBuilder } from '@discordjs/builders';
-import { ModalBuilder, ModalSubmitInteraction, TextInputStyle } from 'discord.js';
+import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { Permissions } from '../types.js';
 import { createCommand, GUILD, resolveBaseCustomId } from '../utilities.js';
 
@@ -15,10 +14,10 @@ const command = createCommand('verify', 'Helps us to validate that you are an XM
     builder => builder,
     async interaction => {
         if (interaction.isChatInputCommand()) {
-            const modal = new ModalBuilder({
-                custom_id: GLOBAL_CUSTOMID,
-                title: 'Verification Form',
-                components: [
+            const modal = new ModalBuilder()
+                .setCustomId(GLOBAL_CUSTOMID)
+                .setTitle('Verification Form')
+                .addComponents(
                     new ActionRowBuilder<TextInputBuilder>()
                         .addComponents(
                             new TextInputBuilder()
@@ -26,7 +25,7 @@ const command = createCommand('verify', 'Helps us to validate that you are an XM
                                 .setRequired(true)
                                 .setLabel('Full Student Name')
                                 .setPlaceholder('Your name here')
-                                .setStyle(TextInputStyle.Short)).toJSON(),
+                                .setStyle(TextInputStyle.Short)),
                     new ActionRowBuilder<TextInputBuilder>()
                         .addComponents(
                             new TextInputBuilder()
@@ -34,7 +33,7 @@ const command = createCommand('verify', 'Helps us to validate that you are an XM
                                 .setRequired(true)
                                 .setLabel('Student ID')
                                 .setPlaceholder('Example: DMT1234123')
-                                .setStyle(TextInputStyle.Short)).toJSON(),
+                                .setStyle(TextInputStyle.Short)),
                     new ActionRowBuilder<TextInputBuilder>()
                         .addComponents(
                             new TextInputBuilder()
@@ -42,9 +41,8 @@ const command = createCommand('verify', 'Helps us to validate that you are an XM
                                 .setRequired(true)
                                 .setLabel('Batch Number')
                                 .setPlaceholder('Example: 2002')
-                                .setStyle(TextInputStyle.Short)).toJSON()
-                ]
-            });
+                                .setStyle(TextInputStyle.Short))
+                );
 
             await interaction.showModal(modal);
         }

@@ -1,4 +1,4 @@
-import { AutocompleteInteraction, CacheType, ChatInputCommandInteraction, Interaction, ModalSubmitInteraction } from "discord.js";
+import { CacheType, ChatInputCommandInteraction, Interaction, InteractionType } from "discord.js";
 
 import Commands from "../commands.js";
 
@@ -11,7 +11,7 @@ export default {
         if (interaction.isContextMenuCommand() || interaction.isMessageContextMenuCommand() || interaction.isUserContextMenuCommand()) return;
 
         // Modal-specific interaction
-        if (interaction.isModalSubmit() || interaction.isMessageComponent()) {
+        if (interaction.type === InteractionType.ModalSubmit || interaction.type === InteractionType.MessageComponent) {
             let categorySeparatorIndex = interaction.customId.indexOf(' ');
             let nextHandlerId = interaction.customId.substring(0, categorySeparatorIndex === -1 ? undefined : categorySeparatorIndex);
             let partitionId = categorySeparatorIndex === -1 ? interaction.customId : interaction.customId.substring(categorySeparatorIndex + 1);
@@ -27,7 +27,7 @@ export default {
             return;
         }
 
-        if (!(interaction.isChatInputCommand() || interaction.isAutocomplete())) return;
+        if (!(interaction.isChatInputCommand() || interaction.type === InteractionType.ApplicationCommandAutocomplete)) return;
 
 
         const command = Commands.BOT_COMMANDS.get(interaction.commandName);

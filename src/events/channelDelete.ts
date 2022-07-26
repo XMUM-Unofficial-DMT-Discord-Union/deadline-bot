@@ -1,4 +1,4 @@
-import { EmbedBuilder, DMChannel, GuildChannel, Colors } from "discord.js";
+import { EmbedBuilder, DMChannel, GuildChannel, Colors, ChannelType } from "discord.js";
 
 import { prisma } from '../utilities.js';
 
@@ -7,9 +7,9 @@ export default {
     name: 'channelDelete',
     async execute(channel: DMChannel | GuildChannel) {
 
-        if (channel.isDM()) return;
+        if (channel.type == ChannelType.DM) return;
 
-        if (!channel.isText()) return;
+        if (channel.type != ChannelType.GuildText) return;
 
         const guild = await prisma.guild.findUnique({
             where: {

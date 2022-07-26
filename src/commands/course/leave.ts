@@ -1,4 +1,4 @@
-import { AutocompleteInteraction } from 'discord.js';
+import { InteractionType } from 'discord.js';
 
 import { createSubCommand, GUILD } from '../../utilities.js';
 
@@ -8,7 +8,7 @@ const command = createSubCommand('leave', 'Leave a course',
         .setRequired(true)
         .setAutocomplete(true)),
     async interaction => {
-        if (interaction.isAutocomplete()) {
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
             await interaction.respond(await (async _ => {
                 let result = [];
                 for (let course of await GUILD.getAllCourses()) {

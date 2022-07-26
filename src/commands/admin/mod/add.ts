@@ -1,4 +1,4 @@
-import { GuildMember } from "discord.js";
+import { GuildMember, InteractionType } from "discord.js";
 
 import { createSubCommand, GUILD } from "../../../utilities.js";
 
@@ -7,7 +7,7 @@ const command = createSubCommand('add', 'Adds a moderator',
         .setDescription('The user to add as moderator')
         .setRequired(true))
     , async (interaction) => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         const targetMember = interaction.options.getMember('target_user') as GuildMember;
 

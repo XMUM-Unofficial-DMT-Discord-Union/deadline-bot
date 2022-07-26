@@ -1,9 +1,8 @@
-import { ChatInputCommandInteraction, Message, ActionRowBuilder, ButtonBuilder, SelectMenuBuilder, SelectMenuInteraction, ComponentType, ModalBuilder, TextInputStyle, ButtonStyle, ModalSubmitInteraction } from 'discord.js';
+import { ChatInputCommandInteraction, ActionRowBuilder, ButtonBuilder, SelectMenuBuilder, ModalBuilder, TextInputStyle, ButtonStyle, ModalSubmitInteraction, TextInputBuilder } from 'discord.js';
 import { Course } from '@prisma/client';
 import dayjs from 'dayjs';
 
 import { createSubCommand, GUILD, messageComponentCloseCollector, resolveBaseCustomId } from '../../../utilities.js';
-import { TextInputBuilder } from '@discordjs/builders';
 
 /**
  * As of 7th April 2022, there are no viable options to let users retry for modal resubmission

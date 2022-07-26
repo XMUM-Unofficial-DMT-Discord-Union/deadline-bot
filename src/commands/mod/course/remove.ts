@@ -1,3 +1,4 @@
+import { InteractionType } from 'discord.js';
 import { createSubCommand, GUILD, prisma } from '../../../utilities.js';
 
 const command = createSubCommand('remove', 'Removes a course',
@@ -6,7 +7,7 @@ const command = createSubCommand('remove', 'Removes a course',
         .setRequired(true)
         .setAutocomplete(true)),
     async interaction => {
-        if (interaction.isAutocomplete()) {
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
             await interaction.respond((await GUILD.getAllCourses()).map(course => { return { name: course.name, value: course.name }; }));
             return;
         }

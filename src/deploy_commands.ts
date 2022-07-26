@@ -13,7 +13,7 @@ Commands.BOT_COMMANDS.each((command) => {
     commandsJSON.push(command.data.toJSON());
 });
 
-const rest = new REST({ version: '9' }).setToken(process.env.CLIENT_TOKEN as string);
+const rest = new REST({ version: '10' }).setToken(process.env.CLIENT_TOKEN as string);
 
 let guilds = await rest.get(Routes.userGuilds()) as RESTGetAPICurrentUserGuildsResult;
 
@@ -225,7 +225,9 @@ for (let guild of guilds) {
 
     // Now we have all roles with the correct privileges - all commands should be able to be accessed by admins now
     await rest.put(Routes.guildApplicationCommandsPermissions(process.env.CLIENT_ID as string, guild.id), {
-        body: permissions
+        body: {
+            permissions: permissions
+        }
     })
         .then(() => console.log('Respective roles have been given permissions.'))
         .catch(error => {

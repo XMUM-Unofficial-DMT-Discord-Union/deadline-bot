@@ -1,4 +1,4 @@
-import { AutocompleteInteraction, Message, ButtonBuilder, ActionRowBuilder, ComponentType, ButtonStyle, Colors, EnumResolvers, ButtonComponent } from 'discord.js';
+import { Message, ButtonBuilder, ActionRowBuilder, ComponentType, ButtonStyle, Colors, ButtonComponent, InteractionType } from 'discord.js';
 import { createSubCommand, GUILD, prisma, resolveBaseCustomId } from '../../utilities.js';
 
 const GLOBAL_CUSTOMID = resolveBaseCustomId(import.meta.url);
@@ -25,7 +25,7 @@ const command = createSubCommand('verify', 'Verifies a member',
         .setRequired(true)
         .setAutocomplete(true)),
     async interaction => {
-        if (interaction.isAutocomplete()) {
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
             const users = await prisma.student.findMany({
                 where: {
                     guilds: {

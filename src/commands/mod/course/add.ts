@@ -1,3 +1,4 @@
+import { InteractionType } from 'discord.js';
 import { createSubCommand, GUILD, prisma } from '../../../utilities.js';
 
 const command = createSubCommand('add', 'Adds a course',
@@ -5,7 +6,7 @@ const command = createSubCommand('add', 'Adds a course',
         .setDescription('The name of the new course')
         .setRequired(true)),
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         const name = interaction.options.getString('name', true);
 

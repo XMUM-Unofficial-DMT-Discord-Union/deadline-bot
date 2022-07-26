@@ -1,5 +1,5 @@
-import { GuildMember } from 'discord.js';
-import { createSubCommand, unimplementedCommandCallback } from '../../utilities.js';
+import { GuildMember, InteractionType } from 'discord.js';
+import { createSubCommand } from '../../utilities.js';
 
 const command = createSubCommand('ban', 'Bans a member',
     builder => builder.addUserOption(option => option.setName('user')
@@ -13,7 +13,7 @@ const command = createSubCommand('ban', 'Bans a member',
             .setDescription('The reason for banning him/her')
             .setRequired(false)),
     async interaction => {
-        if (interaction.isAutocomplete()) throw `Command \`add\` does not have AutoComplete logic`;
+        if (interaction.type === InteractionType.ApplicationCommandAutocomplete) throw `Command \`add\` does not have AutoComplete logic`;
 
         const targetMember = interaction.options.getMember('user') as GuildMember;
 
