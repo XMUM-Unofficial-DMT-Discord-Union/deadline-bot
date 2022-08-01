@@ -9,16 +9,14 @@ datasource db {
 
 model Guild {
   /// The associated Snowflake retrieved from Discord
-  id                        String  @id @unique
+  id                        String        @id @unique
   /// The Snowflake from the associated channel to notify new verifications
   verificationNotifyChannel String?
-
-  role     Role[]
-  students Student[]
-
-  applications Application[]
-  suggestions  Suggestion[]
-  reports      Report[]
+  applications              Application[]
+  reports                   Report[]
+  role                      Role[]
+  suggestions               Suggestion[]
+  students                  Student[]
 }
 
 model Application {
@@ -26,23 +24,20 @@ model Application {
   type      ApplicationType
   discordId String
   name      String
-  reason    String          @db.Text
-
-  guild   Guild  @relation(fields: [guildId], references: [id])
-  guildId String
+  reason    String
+  guildId   String
+  guild     Guild           @relation(fields: [guildId], references: [id])
 }
 
-// TODO: Convert to utilise Postgres table inheritance
 model Suggestion {
   id       Int            @id @default(autoincrement())
   type     SuggestionType
-  reason   String         @db.Text
+  reason   String
   name     String
-  datetime DateTime?      @default(now()) @db.Timestamptz()
+  datetime DateTime?      @default(now()) @db.Timestamptz(6)
   location String?
-
-  guild   Guild  @relation(fields: [guildId], references: [id])
-  guildId String
+  guildId  String
+  guild    Guild          @relation(fields: [guildId], references: [id])
 }
 
 model Report {
@@ -50,11 +45,10 @@ model Report {
   type              ReportType
   reporterDiscordId String
   reportedDiscordId String
-  datetime          DateTime   @db.Timestamptz()
-  reason            String     @db.Text
-
-  guild   Guild  @relation(fields: [guildId], references: [id])
-  guildId String
+  datetime          DateTime   @db.Timestamptz(6)
+  reason            String
+  guildId           String
+  guild             Guild      @relation(fields: [guildId], references: [id])
 }
 
 model Deadline {
@@ -62,13 +56,12 @@ model Deadline {
   name             String
   description      String?
   url              String?
-  datetime         DateTime  @db.Timestamptz()
-  excludedStudents Student[]
-  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  datetime         DateTime  @db.Timestamptz(6)
   courseId         Int
+  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  excludedStudents Student[]
 }
 
-// TODO: Figure out either use Global Course or Local Course (Guild-specific Course)
 model Course {
   id        Int        @id @default(autoincrement())
   name      String     @unique
@@ -81,30 +74,32 @@ model studentsToRoles {
   studentDiscordId String
   roleType         RoleType
   guildId          String
-
-  student Student @relation(fields: [studentDiscordId], references: [discordId], onDelete: Cascade)
-  role    Role    @relation(fields: [guildId, roleType], references: [guildId, type], onDelete: Cascade)
+  role             Role     @relation(fields: [guildId, roleType], references: [guildId, type], onDelete: Cascade)
+  student          Student  @relation(fields: [studentDiscordId], references: [discordId], onDelete: Cascade)
 }
 
 model Student {
   discordId         String            @id @unique
   id                String            @unique
   name              String
-  enrolledBatch     String /// A 4-digit string representing the year and month of intake
-  remindTime        String            @default("1 Week") /// Use `ms` module to get miliseconds from human-readable duration format
-  deadlinesExcluded Deadline[]
-  courses           Course[]
-  guilds            Guild[]
+  /// A 4-digit string representing the year and month of intake
+  enrolledBatch     String
+  /// Use `ms` module to get miliseconds from human-readable duration format
+  remindTime        String            @default("1 Week")
   studentsToRoles   studentsToRoles[]
+  courses           Course[]
+  deadlinesExcluded Deadline[]
+  guilds            Guild[]
 }
 
 model Role {
-  id      String   @unique /// The corresponding Snowflake retrieved from Discord
-  type    RoleType
-  guild   Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  guildId String
-
+  /// The corresponding Snowflake retrieved from Discord
+  id              String            @unique
+  type            RoleType
+  guildId         String
+  guild           Guild             @relation(fields: [guildId], references: [id], onDelete: Cascade)
   studentsToRoles studentsToRoles[]
+
   @@id([guildId, type])
 }
 
